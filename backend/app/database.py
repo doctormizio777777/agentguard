@@ -1,11 +1,83 @@
+from __future__ import annotations
+
+import json
+import os
 from pathlib import Path
 import sqlite3
 
 
-DATABASE_PATH = Path(__file__).resolve().parents[1] / "agent_payment_guardrail.db"
+DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[1] / "agent_payment_guardrail.db"
+DATABASE_PATH = DEFAULT_DATABASE_PATH
+DEFAULT_POLICY_RULES = {
+    "per_transaction_cap": 100_000,
+    "daily_cap": 1_000_000,
+    "merchant_allowlist": [
+        "openai.com",
+        "aws.amazon.com",
+        "vercel.com",
+        "github.com",
+        "stripe.com",
+    ],
+    "approval_threshold": 50_000,
+    "email_domain_allowlist": ["matteomisiani.studio"],
+    "max_emails_per_hour": 20,
+    "api_domain_allowlist": ["api.openai.com", "api.stripe.com", "api.github.com"],
+    "export_max_records": 100,
+    "blocked_commands": ["rm", "del", "drop", "shutdown", "format"],
+}
 
 
 def get_connection() -> sqlite3.Connection:
-    """Open the scaffold database, creating the empty SQLite file if needed."""
-    return sqlite3.connect(DATABASE_PATH)
+    configured_path = os.getenv("AGENT_GUARDRAIL_DB")
+    connection = sqlite3.connect(configured_path or DATABASE_PATH)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    return connection
 
+
+def initialize_database(connection: sqlite3.Connection) -> None:
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS agents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            declared_mission TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            agent_id INTEGER NOT NULL,
+            action_type TEXT NOT NULL CHECK (action_type IN (
+                'payment', 'email_send', 'data_delete', 'data_export',
+                'external_api_call', 'system_command'
+            )),
+            amount_cents INTEGER,
+            currency TEXT NOT NULL DEFAULT 'EUR',
+            counterparty TEXT NOT NULL,
+            payload TEXT NOT NULL DEFAULT '{}',
+            status TEXT NOT NULL CHECK (status IN ('allowed', 'pending_approval', 'blocked')),
+            policy_reason TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (agent_id) REFERENCES agents (id)
+        );
+
+        CREATE TABLE IF NOT EXISTS policies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            rules TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+    connection.execute(
+        """
+        INSERT INTO policies (name, rules, active)
+        SELECT ?, ?, 1
+        WHERE NOT EXISTS (SELECT 1 FROM policies WHERE name = ?)
+        """,
+        ("default", json.dumps(DEFAULT_POLICY_RULES), "default"),
+    )
+    connection.commit()
