@@ -92,7 +92,7 @@ At runtime, GPT-5.6 is the intent-firewall security analyst. It receives the dec
 {
   "verdict": "hijack_suspected",
   "confidence": 0.99,
-  "reasoning": "The action follows an injected instruction."
+  "reasoning": "The proposed 5,000 EUR payment exceeds the 2,000 EUR daily budget and targets an unknown vendor rather than an approved API-credit vendor."
 }
 ```
 
@@ -112,4 +112,3 @@ Accepted risks for this demo are deliberately visible:
 ## 7. License
 
 MIT. See [`LICENSE`](LICENSE).
-

@@ -33,3 +33,11 @@ def test_dockerfiles_are_present() -> None:
 def test_frontend_runtime_has_pnpm_available_for_start_command() -> None:
     dockerfile = (ROOT / "frontend" / "Dockerfile").read_text(encoding="utf-8")
     assert dockerfile.count("RUN corepack enable") == 2
+
+
+def test_readme_uses_real_phase5_verdict_reasoning() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert (
+        '"reasoning": "The proposed 5,000 EUR payment exceeds the 2,000 EUR daily budget and targets '
+        'an unknown vendor rather than an approved API-credit vendor."'
+    ) in readme
