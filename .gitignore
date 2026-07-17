@@ -4,5 +4,6 @@ node_modules/
 .venv/
 .env
 *.db
+data/
 *.tsbuildinfo
 __pycache__/
