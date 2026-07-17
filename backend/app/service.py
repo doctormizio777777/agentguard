@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any, Mapping
 
 from .database import get_connection
+from .intent import IntentUnavailableError, IntentVerdict, judge_intent
 from .ledger import append_entry
 from .policy import Decision, decision_to_status, evaluate
 
@@ -68,6 +69,7 @@ def create_action(
     amount_cents: int | None,
     counterparty: str,
     payload: Mapping[str, Any],
+    intent_judge: Any | None = None,
 ) -> dict[str, Any]:
     if action_type not in ACTION_TYPES:
         raise ValueError("unsupported action_type")
@@ -81,6 +83,10 @@ def create_action(
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
         agent_id = _resolve_agent_id(connection, agent_identifier)
+        mission_row = connection.execute(
+            "SELECT mission_text FROM missions WHERE agent_id = ? AND active = 1 ORDER BY id DESC LIMIT 1",
+            (agent_id,),
+        ).fetchone()
         policy_row = connection.execute(
             "SELECT name, rules FROM policies WHERE active = 1 ORDER BY id LIMIT 1"
         ).fetchone()
@@ -98,17 +104,53 @@ def create_action(
             policy,
             context,
         )
-        status = decision_to_status(result["decision"])
-        policy_reason = "; ".join(result["reasons"])
+        intent_verdict: IntentVerdict | None = None
+        intent_error: str | None = None
+        if mission_row is not None:
+            try:
+                intent_verdict = (intent_judge or judge_intent)(
+                    mission_row["mission_text"],
+                    {
+                        "action_type": action_type,
+                        "amount_cents": amount_cents,
+                        "currency": "EUR",
+                        "counterparty": counterparty,
+                        "payload": dict(payload),
+                    },
+                )
+            except Exception:
+                intent_error = "intent firewall unavailable — human review required"
+        fused = fuse_decision(
+            result["decision"],
+            result["reasons"],
+            None if intent_verdict is None else intent_verdict.model_dump(),
+            mission_row is not None,
+        )
+        status = decision_to_status(fused["decision"])
+        policy_reason = "; ".join(fused["reasons"])
+        intent_json = None if intent_verdict is None else json.dumps(intent_verdict.model_dump(), sort_keys=True)
         cursor = connection.execute(
             """INSERT INTO actions
-               (agent_id, action_type, amount_cents, counterparty, payload, status, policy_reason)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (agent_id, action_type, amount_cents, counterparty, json.dumps(payload), status, policy_reason),
+               (agent_id, action_type, amount_cents, counterparty, payload, status, policy_reason,
+                intent_verdict, intent_model, intent_latency_ms, intent_error)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                agent_id,
+                action_type,
+                amount_cents,
+                counterparty,
+                json.dumps(payload),
+                status,
+                policy_reason,
+                intent_json,
+                None if intent_verdict is None else intent_verdict.model,
+                None if intent_verdict is None else intent_verdict.latency_ms,
+                intent_error,
+            ),
         )
         row = connection.execute("SELECT * FROM actions WHERE id = ?", (cursor.lastrowid,)).fetchone()
-        append_entry(connection, row["id"], "action_evaluated", _ledger_snapshot(connection, row, result["decision"], result["reasons"]))
-    return _action_response(row, result["decision"], result["reasons"])
+        append_entry(connection, row["id"], "action_evaluated", _ledger_snapshot(connection, row, fused["decision"], fused["reasons"]))
+    return _action_response(row, fused["decision"], fused["reasons"])
 
 
 def transition_action(action_id: int, approve: bool) -> dict[str, Any]:
@@ -143,6 +185,8 @@ def get_action_status(action_id: int) -> dict[str, Any]:
         "status": row["status"],
         "reasons": _reasons(row["policy_reason"]),
         "policy_reason": row["policy_reason"],
+        "intent_verdict": None if row["intent_verdict"] is None else json.loads(row["intent_verdict"]),
+        "intent_error": row["intent_error"],
     }
 
 
@@ -213,6 +257,8 @@ def _ledger_snapshot(connection: sqlite3.Connection, row: Any, decision: Decisio
         "decision": decision,
         "reasons": reasons,
         "mission_text": None if mission is None else mission["mission_text"],
+        "intent_verdict": None if row["intent_verdict"] is None else json.loads(row["intent_verdict"]),
+        "intent_error": row["intent_error"],
     }
 
 
@@ -231,6 +277,10 @@ def _action_response(row: Any, decision: Decision | None, reasons: list[str]) ->
         "policy_reason": row["policy_reason"],
         "created_at": row["created_at"],
         "reasons": reasons,
+        "intent_verdict": None if row["intent_verdict"] is None else json.loads(row["intent_verdict"]),
+        "intent_model": row["intent_model"],
+        "intent_latency_ms": row["intent_latency_ms"],
+        "intent_error": row["intent_error"],
     }
 
 
@@ -240,3 +290,31 @@ def _mission_response(row: Any) -> dict[str, Any]:
 
 def _reasons(policy_reason: str) -> list[str]:
     return [] if not policy_reason else [reason.strip() for reason in policy_reason.split(";")]
+
+
+def fuse_decision(
+    policy_decision: Decision,
+    policy_reasons: list[str],
+    intent_verdict: Mapping[str, Any] | None,
+    mission_present: bool,
+) -> dict[str, Any]:
+    reasons = list(policy_reasons)
+    if not mission_present:
+        reasons.append("no mission declared — intent check skipped")
+        return {"decision": "PENDING_APPROVAL" if policy_decision == "ALLOW" else policy_decision, "reasons": reasons}
+
+    if intent_verdict is None:
+        reasons.append("intent firewall unavailable — human review required")
+        return {"decision": "PENDING_APPROVAL" if policy_decision == "ALLOW" else policy_decision, "reasons": reasons}
+
+    verdict = intent_verdict["verdict"]
+    if verdict in {"suspicious", "hijack_suspected"}:
+        label = "hijack suspected" if verdict == "hijack_suspected" else "suspicious intent"
+        reasons.append(
+            f"intent firewall: {label} (confidence {float(intent_verdict['confidence']):.2f}): {intent_verdict['reasoning']}"
+        )
+    if policy_decision == "BLOCK" or verdict == "hijack_suspected":
+        return {"decision": "BLOCK", "reasons": reasons}
+    if verdict == "suspicious":
+        return {"decision": "PENDING_APPROVAL", "reasons": reasons}
+    return {"decision": policy_decision, "reasons": reasons}

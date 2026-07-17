@@ -53,7 +53,13 @@ def request_action(agent_id: str, action_type: str, payload: dict[str, Any]) -> 
     amount_cents = payload.get("amount_cents")
     action_payload = {key: value for key, value in payload.items() if key not in {"counterparty", "amount_cents"}}
     result = create_action(agent_id, action_type, amount_cents, counterparty, action_payload)
-    return {"action_id": result["id"], "status": _mcp_status(result["status"]), "reasons": result["reasons"]}
+    return {
+        "action_id": result["id"],
+        "status": _mcp_status(result["status"]),
+        "reasons": result["reasons"],
+        "intent_verdict": result["intent_verdict"],
+        "intent_error": result["intent_error"],
+    }
 
 
 @mcp.tool(

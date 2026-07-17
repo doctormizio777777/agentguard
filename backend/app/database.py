@@ -59,6 +59,10 @@ def initialize_database(connection: sqlite3.Connection) -> None:
             payload TEXT NOT NULL DEFAULT '{}',
             status TEXT NOT NULL CHECK (status IN ('allowed', 'pending_approval', 'blocked')),
             policy_reason TEXT NOT NULL DEFAULT '',
+            intent_verdict TEXT,
+            intent_model TEXT,
+            intent_latency_ms INTEGER,
+            intent_error TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (agent_id) REFERENCES agents (id)
         );
@@ -95,6 +99,15 @@ def initialize_database(connection: sqlite3.Connection) -> None:
         );
         """
     )
+    action_columns = {row[1] for row in connection.execute("PRAGMA table_info(actions)").fetchall()}
+    for column, definition in (
+        ("intent_verdict", "TEXT"),
+        ("intent_model", "TEXT"),
+        ("intent_latency_ms", "INTEGER"),
+        ("intent_error", "TEXT"),
+    ):
+        if column not in action_columns:
+            connection.execute(f"ALTER TABLE actions ADD COLUMN {column} {definition}")
     connection.execute(
         """
         INSERT INTO policies (name, rules, active)

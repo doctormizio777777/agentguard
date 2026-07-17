@@ -28,8 +28,10 @@ def test_mcp_request_action_matches_http_result(client, agent):
     )
 
     assert http_response.status_code == 201
-    assert mcp_response["status"] == http_response.json()["status"]
-    assert mcp_response["reasons"] == []
+    expected_mcp_status = {"allowed": "allowed", "pending_approval": "pending", "blocked": "blocked"}[http_response.json()["status"]]
+    assert mcp_response["status"] == expected_mcp_status
+    http_reasons = [] if not http_response.json()["policy_reason"] else http_response.json()["policy_reason"].split("; ")
+    assert mcp_response["reasons"] == http_reasons
 
 
 def test_mcp_pending_action_becomes_allowed_after_http_approval(client):

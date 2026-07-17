@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from .database import initialize_database, get_connection
 from .ledger import verify_chain
 from .policy import Decision
+from .risk import compute_risk, risk_components
 from .service import (
     ActionNotFoundError,
     ActionNotPendingError,
@@ -84,6 +85,10 @@ class ActionResponse(BaseModel):
     decision: Decision | None = None
     policy_reason: str
     created_at: str
+    intent_verdict: dict[str, Any] | None = None
+    intent_model: str | None = None
+    intent_latency_ms: int | None = None
+    intent_error: str | None = None
 
 
 @asynccontextmanager
@@ -119,6 +124,22 @@ def create_agent(request: AgentCreate) -> AgentResponse:
             (cursor.lastrowid,),
         ).fetchone()
     return AgentResponse(id=row[0], name=row[1], declared_mission=row[2], created_at=row[3])
+
+
+@app.get("/agents")
+def list_agents() -> list[dict[str, Any]]:
+    with get_connection() as connection:
+        rows = connection.execute("SELECT id, name, declared_mission, created_at FROM agents ORDER BY id DESC").fetchall()
+    return [
+        {
+            "id": row["id"],
+            "name": row["name"],
+            "declared_mission": row["declared_mission"],
+            "created_at": row["created_at"],
+            "risk_score": compute_risk(row["id"]),
+        }
+        for row in rows
+    ]
 
 
 @app.post("/actions", response_model=ActionResponse, status_code=201)
@@ -157,6 +178,14 @@ def get_mission(agent_id: int) -> MissionResponse:
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     return MissionResponse(**result)
+
+
+@app.get("/agents/{agent_id}/risk")
+def get_agent_risk(agent_id: int) -> dict[str, Any]:
+    with get_connection() as connection:
+        if connection.execute("SELECT 1 FROM agents WHERE id = ?", (agent_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="agent not found")
+    return {"agent_id": agent_id, "risk_score": compute_risk(agent_id), "components": risk_components(agent_id)}
 
 
 @app.get("/actions", response_model=list[ActionResponse])
@@ -261,4 +290,8 @@ def _action_response(row: Any, decision: Decision | None = None) -> ActionRespon
         decision=decision,
         policy_reason=row["policy_reason"],
         created_at=row["created_at"],
+        intent_verdict=None if row["intent_verdict"] is None else json.loads(row["intent_verdict"]),
+        intent_model=row["intent_model"],
+        intent_latency_ms=row["intent_latency_ms"],
+        intent_error=row["intent_error"],
     )
