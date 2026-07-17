@@ -10,8 +10,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .database import initialize_database, get_connection
-from .ledger import append_entry, verify_chain
-from .policy import Decision, decision_to_status, evaluate
+from .ledger import verify_chain
+from .policy import Decision
+from .service import (
+    ActionNotFoundError,
+    ActionNotPendingError,
+    AgentNotFoundError,
+    create_action as service_create_action,
+    declare_mission as service_declare_mission,
+    transition_action,
+)
 
 
 ActionType = Literal[
@@ -23,9 +31,6 @@ ActionType = Literal[
     "system_command",
 ]
 ActionStatus = Literal["allowed", "pending_approval", "blocked"]
-PENDING_STATUS = decision_to_status("PENDING_APPROVAL")
-ALLOWED_STATUS = decision_to_status("ALLOW")
-BLOCKED_STATUS = decision_to_status("BLOCK")
 
 
 class AgentCreate(BaseModel):
@@ -38,6 +43,18 @@ class AgentResponse(AgentCreate):
     created_at: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MissionCreate(BaseModel):
+    mission: str = Field(min_length=1)
+
+
+class MissionResponse(BaseModel):
+    id: int
+    agent_id: int
+    mission_text: str
+    active: bool
+    created_at: str
 
 
 class ActionCreate(BaseModel):
@@ -107,58 +124,39 @@ def create_agent(request: AgentCreate) -> AgentResponse:
 @app.post("/actions", response_model=ActionResponse, status_code=201)
 def create_action(request: ActionCreate) -> ActionResponse:
     amount_cents = _amount_to_cents(request.amount)
-    if request.action_type == "payment" and amount_cents is None:
-        raise HTTPException(status_code=422, detail="payment requires amount")
+    try:
+        result = service_create_action(
+            str(request.agent_id), request.action_type, amount_cents, request.counterparty, request.payload
+        )
+    except AgentNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return ActionResponse(**{key: value for key, value in result.items() if key != "reasons"})
 
-    with get_connection() as connection:
-        connection.execute("BEGIN IMMEDIATE")
-        if connection.execute("SELECT 1 FROM agents WHERE id = ?", (request.agent_id,)).fetchone() is None:
-            raise HTTPException(status_code=404, detail="agent not found")
 
-        policy_row = connection.execute(
-            "SELECT rules FROM policies WHERE active = 1 ORDER BY id LIMIT 1"
-        ).fetchone()
-        if policy_row is None:
-            raise HTTPException(status_code=500, detail="no active policy configured")
-        policy = json.loads(policy_row[0])
-        context = _policy_context(connection, request.agent_id, request.action_type)
-        result = evaluate(
-            {
-                "action_type": request.action_type,
-                "amount_cents": amount_cents,
-                "counterparty": request.counterparty,
-                "payload": request.payload,
-            },
-            policy,
-            context,
-        )
-        decision = result["decision"]
-        status = decision_to_status(decision)
-        policy_reason = "; ".join(result["reasons"])
-        cursor = connection.execute(
-            """
-            INSERT INTO actions
-                (agent_id, action_type, amount_cents, counterparty, payload, status, policy_reason)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                request.agent_id,
-                request.action_type,
-                amount_cents,
-                request.counterparty,
-                json.dumps(request.payload),
-                status,
-                policy_reason,
-            ),
-        )
-        row = connection.execute("SELECT * FROM actions WHERE id = ?", (cursor.lastrowid,)).fetchone()
-        append_entry(
-            connection,
-            row["id"],
-            "action_evaluated",
-            _ledger_snapshot(row, decision, result["reasons"]),
-        )
-    return _action_response(row, decision)
+@app.post("/agents/{agent_id}/mission", response_model=MissionResponse, status_code=201)
+def create_mission(agent_id: int, request: MissionCreate) -> MissionResponse:
+    try:
+        result = service_declare_mission(str(agent_id), request.mission)
+    except AgentNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    return MissionResponse(**result)
+
+
+@app.get("/agents/{agent_id}/mission", response_model=MissionResponse)
+def get_mission(agent_id: int) -> MissionResponse:
+    from .service import get_active_mission
+
+    try:
+        result = get_active_mission(str(agent_id))
+    except AgentNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    return MissionResponse(**result)
 
 
 @app.get("/actions", response_model=list[ActionResponse])
@@ -188,37 +186,24 @@ def list_actions(
 
 @app.post("/actions/{action_id}/approve", response_model=ActionResponse)
 def approve_action(action_id: int) -> ActionResponse:
-    return _decide_pending_action(action_id, ALLOWED_STATUS, "human decision: approved")
+    try:
+        result = transition_action(action_id, approve=True)
+    except ActionNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ActionNotPendingError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return ActionResponse(**{key: value for key, value in result.items() if key != "reasons"})
 
 
 @app.post("/actions/{action_id}/reject", response_model=ActionResponse)
 def reject_action(action_id: int) -> ActionResponse:
-    return _decide_pending_action(action_id, BLOCKED_STATUS, "human decision: rejected")
-
-
-def _decide_pending_action(action_id: int, status: ActionStatus, decision_reason: str) -> ActionResponse:
-    with get_connection() as connection:
-        connection.execute("BEGIN IMMEDIATE")
-        row = connection.execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
-        if row is None:
-            raise HTTPException(status_code=404, detail="action not found")
-        if row["status"] != PENDING_STATUS:
-            raise HTTPException(status_code=409, detail="action is not pending approval")
-        policy_reason = f"{row['policy_reason']}; {decision_reason}".strip("; ")
-        connection.execute(
-            "UPDATE actions SET status = ?, policy_reason = ? WHERE id = ?",
-            (status, policy_reason, action_id),
-        )
-        updated = connection.execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
-        event_type = "action_approved" if status == ALLOWED_STATUS else "action_rejected"
-        decision = "ALLOW" if status == ALLOWED_STATUS else "BLOCK"
-        append_entry(
-            connection,
-            action_id,
-            event_type,
-            _ledger_snapshot(updated, decision, [policy_reason]),
-        )
-    return _action_response(updated)
+    try:
+        result = transition_action(action_id, approve=False)
+    except ActionNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ActionNotPendingError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    return ActionResponse(**{key: value for key, value in result.items() if key != "reasons"})
 
 
 @app.get("/ledger")
@@ -238,43 +223,6 @@ def list_ledger(
 def ledger_verify() -> dict[str, Any]:
     with get_connection() as connection:
         return verify_chain(connection)
-
-
-def _policy_context(connection: Any, agent_id: int, action_type: ActionType) -> dict[str, int]:
-    context = {"daily_allowed_cents": 0, "emails_last_hour": 0}
-    if action_type == "payment":
-        context["daily_allowed_cents"] = connection.execute(
-            """
-            SELECT COALESCE(SUM(amount_cents), 0)
-            FROM actions
-            WHERE agent_id = ? AND action_type = 'payment' AND status = ?
-              AND created_at >= datetime('now', 'start of day')
-            """,
-            (agent_id, ALLOWED_STATUS),
-        ).fetchone()[0]
-    if action_type == "email_send":
-        context["emails_last_hour"] = connection.execute(
-            """
-            SELECT COUNT(*)
-            FROM actions
-            WHERE agent_id = ? AND action_type = 'email_send' AND status = ?
-              AND created_at >= datetime('now', '-1 hour')
-            """,
-            (agent_id, ALLOWED_STATUS),
-        ).fetchone()[0]
-    return context
-
-
-def _ledger_snapshot(row: Any, decision: Decision, reasons: list[str]) -> dict[str, Any]:
-    return {
-        "agent_id": row["agent_id"],
-        "action_type": row["action_type"],
-        "amount_cents": row["amount_cents"],
-        "currency": row["currency"],
-        "counterparty": row["counterparty"],
-        "decision": decision,
-        "reasons": reasons,
-    }
 
 
 def _ledger_response(row: Any) -> dict[str, Any]:
