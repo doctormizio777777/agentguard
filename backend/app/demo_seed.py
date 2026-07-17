@@ -151,6 +151,11 @@ def _clear_demo_data(connection: sqlite3.Connection) -> None:
     )
 
 
+def reset_demo_database() -> dict[str, Any]:
+    with get_connection() as connection:
+        return seed_dashboard(connection, reset=True)
+
+
 def main() -> None:
     with get_connection() as connection:
         result = seed_dashboard(connection)

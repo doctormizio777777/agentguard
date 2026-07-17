@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+import asyncio
 import json
-from contextlib import asynccontextmanager
+import logging
+import secrets
+from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Annotated, Any, Callable, Literal
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .database import initialize_database, get_connection
 from .dashboard import get_dashboard_summary
+from .demo_seed import reset_demo_database
 from .ledger import verify_chain
 from .policy import Decision
 from .risk import compute_risk, risk_components
+from .settings import allowed_origins, auto_reseed_seconds, demo_mode_enabled, demo_reset_key
 from .service import (
     ActionNotFoundError,
     ActionNotPendingError,
@@ -33,6 +38,7 @@ ActionType = Literal[
     "system_command",
 ]
 ActionStatus = Literal["allowed", "pending_approval", "blocked"]
+LOGGER = logging.getLogger(__name__)
 
 
 class AgentCreate(BaseModel):
@@ -98,13 +104,36 @@ class ActionResponse(BaseModel):
 async def lifespan(_: FastAPI):
     with get_connection() as connection:
         initialize_database(connection)
-    yield
+    interval_seconds = auto_reseed_seconds()
+    reseed_task = (
+        asyncio.create_task(run_auto_reseed(interval_seconds, reset_demo_database))
+        if interval_seconds is not None
+        else None
+    )
+    try:
+        yield
+    finally:
+        if reseed_task is not None:
+            reseed_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await reseed_task
+
+
+async def run_auto_reseed(interval_seconds: float, resetter: Callable[[], Any]) -> None:
+    while True:
+        await asyncio.sleep(interval_seconds)
+        try:
+            await asyncio.to_thread(resetter)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            LOGGER.exception("automatic demo reseed failed")
 
 
 app = FastAPI(title="Agent Payment Guardrail", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=allowed_origins(),
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -264,7 +293,23 @@ def ledger_verify() -> dict[str, Any]:
 
 @app.get("/dashboard/summary")
 def dashboard_summary() -> dict[str, Any]:
-    return get_dashboard_summary()
+    summary = get_dashboard_summary()
+    if demo_mode_enabled():
+        summary["demo"] = True
+    return summary
+
+
+@app.post("/demo/reset")
+def demo_reset(
+    x_demo_key: Annotated[str | None, Header(alias="X-Demo-Key")] = None,
+) -> dict[str, Any]:
+    configured_key = demo_reset_key()
+    if configured_key is None:
+        raise HTTPException(status_code=503, detail="demo reset is not configured")
+    if not secrets.compare_digest(x_demo_key or "", configured_key):
+        raise HTTPException(status_code=403, detail="invalid demo reset key")
+    result = reset_demo_database()
+    return {"status": "reset", **result}
 
 
 def _ledger_response(row: Any) -> dict[str, Any]:
