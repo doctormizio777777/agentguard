@@ -1,5 +1,7 @@
 # AgentGuard — the intelligent firewall for AI agents. It knows if your agent is still yours.
 
+**Live demo:** _Vercel URL will be added after deployment_ · [Run locally with Docker](#3-try-it-in-60-seconds)
+
 ## 1. The problem
 
 AI agents act autonomously across payments, email, data, APIs, and system tools. Prompt injection can hijack that autonomy and make a legitimate agent serve an attacker. Static spend rules can cap money, but they cannot see whether the agent's intent still matches its mission. Gartner projects that 1 in 4 enterprise breaches will be traced back to AI agent abuse by 2028 ([source](https://www.gartner.com/en/newsroom/press-releases/2024-10-22-gartner-unveils-top-predictions-for-it-organizations-and-users-in-2025-and-beyond)).
@@ -114,7 +116,7 @@ The fintech safety reviews are tracked in [`docs/reviews/`](docs/reviews/): [Pha
 
 Accepted risks for this demo are deliberately visible:
 
-- No authentication or authorization: demo scope only; do not expose this instance publicly.
+- No authentication or authorization on approve/reject: the public demo is intentionally interactive and must never contain real actions or data.
 - No idempotency keys yet: duplicate client submissions remain a known integration risk.
 - Fail-closed by design: an unavailable intent firewall moves an otherwise allowable action to human review.
 - SQLite and local Docker volume: suitable for the demo, not a production deployment topology.

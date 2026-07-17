@@ -1,14 +1,14 @@
 FROM python:3.11-slim
 
 WORKDIR /app
-ENV PYTHONUNBUFFERED=1 PYTHONPATH=/app/backend
+ENV PYTHONUNBUFFERED=1 PYTHONPATH=/app
 
-COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY backend /app/backend
-COPY scripts /app/scripts
-RUN chmod +x /app/backend/docker-entrypoint.sh
+COPY app /app/app
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 8000
-ENTRYPOINT ["/app/backend/docker-entrypoint.sh"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

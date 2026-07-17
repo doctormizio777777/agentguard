@@ -16,7 +16,7 @@ def test_backend_entrypoint_initializes_and_seeds_only_empty_database() -> None:
     entrypoint = (ROOT / "backend" / "docker-entrypoint.sh").read_text(encoding="utf-8")
     assert "initialize_database" in entrypoint
     assert "ledger_entries" in entrypoint
-    assert "seed_dashboard.py" in entrypoint
+    assert "python -m app.demo_seed" in entrypoint
     assert "uvicorn app.main:app" in entrypoint
     seed = (ROOT / "backend" / "app" / "demo_seed.py").read_text(encoding="utf-8")
     assert "refusing to reseed" in seed

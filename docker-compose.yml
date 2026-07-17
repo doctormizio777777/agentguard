@@ -1,8 +1,8 @@
 services:
   backend:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
+      dockerfile: Dockerfile
     environment:
       AGENT_GUARDRAIL_DB: /data/agent_payment_guardrail.db
     ports:
