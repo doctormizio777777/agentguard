@@ -34,6 +34,16 @@ Open [http://localhost:3000](http://localhost:3000). You will see:
 
 The backend creates the SQLite schema on startup and seeds the canned dataset only when the ledger is empty. Restarting the service does not reset or duplicate an existing chain.
 
+### Verify every claim
+
+With the Compose stack running, execute [`scripts/verify_all.py`](scripts/verify_all.py):
+
+```bash
+python scripts/verify_all.py
+```
+
+It exercises health, seeded hijack evidence, a live policy block, the approval loop, and a reversible direct-SQL ledger tamper. The complete claim-by-claim transcript and code pointers are in [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
+
 For the optional live hijack demo, copy `.env.example` to `backend/.env`, fill the OpenRouter credentials and model settings, then run:
 
 ```bash

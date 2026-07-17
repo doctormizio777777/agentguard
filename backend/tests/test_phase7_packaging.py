@@ -41,3 +41,35 @@ def test_readme_uses_real_phase5_verdict_reasoning() -> None:
         '"reasoning": "The proposed 5,000 EUR payment exceeds the 2,000 EUR daily budget and targets '
         'an unknown vendor rather than an approved API-credit vendor."'
     ) in readme
+
+
+def test_readme_links_verification_runner_and_document() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "### Verify every claim" in readme
+    assert "scripts/verify_all.py" in readme
+    assert "docs/VERIFICATION.md" in readme
+
+
+def test_verification_document_contains_required_claims_and_tamper_evidence() -> None:
+    verification_path = ROOT / "docs" / "VERIFICATION.md"
+    assert verification_path.is_file()
+    verification = verification_path.read_text(encoding="utf-8")
+    assert verification.startswith(
+        "# AgentGuard Verification\n\nRun `scripts/verify_all.py` against the running compose stack "
+        "to reproduce every claim below."
+    )
+    for claim in (
+        "Money is never floats",
+        "Every decision is audited atomically",
+        "The chain detects tampering",
+        "Fail-closed by design",
+        "One code path for HTTP and MCP",
+        "64 backend + 3 frontend tests",
+    ):
+        assert claim in verification
+    assert '"valid": true' in verification
+    assert '"valid": false' in verification
+    assert '"first_broken_seq": 2' in verification
+    assert "entry_hash mismatch at seq 2" in verification
+    for commit in ("1d8072f", "79364a2", "9a92623", "2482036"):
+        assert commit in verification
