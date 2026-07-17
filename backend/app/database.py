@@ -4,10 +4,12 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+from typing import TypeAlias
 
 
 DEFAULT_DATABASE_PATH = Path(__file__).resolve().parents[1] / "agent_payment_guardrail.db"
 DATABASE_PATH = DEFAULT_DATABASE_PATH
+DatabasePath: TypeAlias = str | os.PathLike[str]
 DEFAULT_POLICY_RULES = {
     "per_transaction_cap": 100_000,
     "daily_cap": 1_000_000,
@@ -27,9 +29,9 @@ DEFAULT_POLICY_RULES = {
 }
 
 
-def get_connection() -> sqlite3.Connection:
-    configured_path = os.getenv("AGENT_GUARDRAIL_DB")
-    connection = sqlite3.connect(configured_path or DATABASE_PATH)
+def get_connection(database_path: DatabasePath | None = None) -> sqlite3.Connection:
+    configured_path = database_path or os.getenv("AGENT_GUARDRAIL_DB") or DATABASE_PATH
+    connection = sqlite3.connect(configured_path)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
@@ -108,6 +110,11 @@ def initialize_database(connection: sqlite3.Connection) -> None:
     ):
         if column not in action_columns:
             connection.execute(f"ALTER TABLE actions ADD COLUMN {column} {definition}")
+    ensure_default_policy(connection)
+    connection.commit()
+
+
+def ensure_default_policy(connection: sqlite3.Connection) -> None:
     connection.execute(
         """
         INSERT INTO policies (name, rules, active)
@@ -116,4 +123,3 @@ def initialize_database(connection: sqlite3.Connection) -> None:
         """,
         ("default", json.dumps(DEFAULT_POLICY_RULES), "default"),
     )
-    connection.commit()

@@ -41,13 +41,23 @@ def declare_mission(agent_identifier: str, mission: str) -> dict[str, Any]:
         raise ValueError("mission must not be empty")
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
-        agent_id = _resolve_agent_id(connection, agent_identifier, create_if_missing=True, mission=mission)
-        connection.execute("UPDATE missions SET active = 0 WHERE agent_id = ? AND active = 1", (agent_id,))
-        cursor = connection.execute(
-            "INSERT INTO missions (agent_id, mission_text, active) VALUES (?, ?, 1)",
-            (agent_id, mission),
-        )
-        row = connection.execute("SELECT * FROM missions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        return declare_mission_in_transaction(connection, agent_identifier, mission)
+
+
+def declare_mission_in_transaction(
+    connection: sqlite3.Connection,
+    agent_identifier: str,
+    mission: str,
+) -> dict[str, Any]:
+    if not mission.strip():
+        raise ValueError("mission must not be empty")
+    agent_id = _resolve_agent_id(connection, agent_identifier, create_if_missing=True, mission=mission)
+    connection.execute("UPDATE missions SET active = 0 WHERE agent_id = ? AND active = 1", (agent_id,))
+    cursor = connection.execute(
+        "INSERT INTO missions (agent_id, mission_text, active) VALUES (?, ?, 1)",
+        (agent_id, mission),
+    )
+    row = connection.execute("SELECT * FROM missions WHERE id = ?", (cursor.lastrowid,)).fetchone()
     return _mission_response(row)
 
 
@@ -71,6 +81,28 @@ def create_action(
     payload: Mapping[str, Any],
     intent_judge: Any | None = None,
 ) -> dict[str, Any]:
+    with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        return create_action_in_transaction(
+            connection,
+            agent_identifier,
+            action_type,
+            amount_cents,
+            counterparty,
+            payload,
+            intent_judge=intent_judge,
+        )
+
+
+def create_action_in_transaction(
+    connection: sqlite3.Connection,
+    agent_identifier: str,
+    action_type: str,
+    amount_cents: int | None,
+    counterparty: str,
+    payload: Mapping[str, Any],
+    intent_judge: Any | None = None,
+) -> dict[str, Any]:
     if action_type not in ACTION_TYPES:
         raise ValueError("unsupported action_type")
     if not counterparty.strip():
@@ -80,77 +112,80 @@ def create_action(
     if action_type == "payment" and amount_cents is None:
         raise ValueError("payment requires amount")
 
-    with get_connection() as connection:
-        connection.execute("BEGIN IMMEDIATE")
-        agent_id = _resolve_agent_id(connection, agent_identifier)
-        mission_row = connection.execute(
-            "SELECT mission_text FROM missions WHERE agent_id = ? AND active = 1 ORDER BY id DESC LIMIT 1",
-            (agent_id,),
-        ).fetchone()
-        policy_row = connection.execute(
-            "SELECT name, rules FROM policies WHERE active = 1 ORDER BY id LIMIT 1"
-        ).fetchone()
-        if policy_row is None:
-            raise ValueError("no active policy configured")
-        policy = json.loads(policy_row["rules"])
-        context = _policy_context(connection, agent_id, action_type)
-        result = evaluate(
+    agent_id = _resolve_agent_id(connection, agent_identifier)
+    mission_row = connection.execute(
+        "SELECT mission_text FROM missions WHERE agent_id = ? AND active = 1 ORDER BY id DESC LIMIT 1",
+        (agent_id,),
+    ).fetchone()
+    policy_row = connection.execute(
+        "SELECT name, rules FROM policies WHERE active = 1 ORDER BY id LIMIT 1"
+    ).fetchone()
+    if policy_row is None:
+        raise ValueError("no active policy configured")
+    policy = json.loads(policy_row["rules"])
+    context = _policy_context(connection, agent_id, action_type)
+    result = evaluate(
+        {
+            "action_type": action_type,
+            "amount_cents": amount_cents,
+            "counterparty": counterparty,
+            "payload": payload,
+        },
+        policy,
+        context,
+    )
+    intent_verdict: IntentVerdict | None = None
+    intent_error: str | None = None
+    if mission_row is not None:
+        try:
+            intent_verdict = (intent_judge or judge_intent)(
+                mission_row["mission_text"],
             {
                 "action_type": action_type,
                 "amount_cents": amount_cents,
+                "currency": "EUR",
                 "counterparty": counterparty,
-                "payload": payload,
+                "payload": dict(payload),
             },
-            policy,
-            context,
-        )
-        intent_verdict: IntentVerdict | None = None
-        intent_error: str | None = None
-        if mission_row is not None:
-            try:
-                intent_verdict = (intent_judge or judge_intent)(
-                    mission_row["mission_text"],
-                    {
-                        "action_type": action_type,
-                        "amount_cents": amount_cents,
-                        "currency": "EUR",
-                        "counterparty": counterparty,
-                        "payload": dict(payload),
-                    },
-                )
-            except Exception:
-                intent_error = "intent firewall unavailable — human review required"
-        fused = fuse_decision(
-            result["decision"],
-            result["reasons"],
-            None if intent_verdict is None else intent_verdict.model_dump(),
-            mission_row is not None,
-        )
-        status = decision_to_status(fused["decision"])
-        policy_reason = "; ".join(fused["reasons"])
-        intent_json = None if intent_verdict is None else json.dumps(intent_verdict.model_dump(), sort_keys=True)
-        cursor = connection.execute(
-            """INSERT INTO actions
-               (agent_id, action_type, amount_cents, counterparty, payload, status, policy_reason,
-                intent_verdict, intent_model, intent_latency_ms, intent_error)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                agent_id,
-                action_type,
-                amount_cents,
-                counterparty,
-                json.dumps(payload),
-                status,
-                policy_reason,
-                intent_json,
-                None if intent_verdict is None else intent_verdict.model,
-                None if intent_verdict is None else intent_verdict.latency_ms,
-                intent_error,
-            ),
-        )
-        row = connection.execute("SELECT * FROM actions WHERE id = ?", (cursor.lastrowid,)).fetchone()
-        append_entry(connection, row["id"], "action_evaluated", _ledger_snapshot(connection, row, fused["decision"], fused["reasons"]))
-    return _action_response(row, fused["decision"], fused["reasons"])
+            )
+        except Exception:
+            intent_error = "intent firewall unavailable — human review required"
+    fused = fuse_decision(
+        result["decision"],
+        result["reasons"],
+        None if intent_verdict is None else intent_verdict.model_dump(),
+        mission_row is not None,
+    )
+    status = decision_to_status(fused["decision"])
+    policy_reason = "; ".join(fused["reasons"])
+    intent_json = None if intent_verdict is None else json.dumps(intent_verdict.model_dump(), sort_keys=True)
+    cursor = connection.execute(
+        """INSERT INTO actions
+           (agent_id, action_type, amount_cents, counterparty, payload, status, policy_reason,
+            intent_verdict, intent_model, intent_latency_ms, intent_error)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            agent_id,
+            action_type,
+            amount_cents,
+            counterparty,
+            json.dumps(payload),
+            status,
+            policy_reason,
+            intent_json,
+            None if intent_verdict is None else intent_verdict.model,
+            None if intent_verdict is None else intent_verdict.latency_ms,
+            intent_error,
+        ),
+    )
+    row = connection.execute("SELECT * FROM actions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    append_entry(
+        connection,
+        row["id"],
+        "action_evaluated",
+        _ledger_snapshot(connection, row, fused["decision"], fused["reasons"]),
+    )
+    return _action_response(row, fused["decision"], fused["reasons"], connection)
 
 
 def transition_action(action_id: int, approve: bool) -> dict[str, Any]:
@@ -172,7 +207,7 @@ def transition_action(action_id: int, approve: bool) -> dict[str, Any]:
         )
         updated = connection.execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
         append_entry(connection, action_id, event_type, _ledger_snapshot(connection, updated, decision, [policy_reason]))
-    return _action_response(updated, None, [policy_reason])
+        return _action_response(updated, None, [policy_reason], connection)
 
 
 def get_action_status(action_id: int) -> dict[str, Any]:
@@ -262,7 +297,12 @@ def _ledger_snapshot(connection: sqlite3.Connection, row: Any, decision: Decisio
     }
 
 
-def _action_response(row: Any, decision: Decision | None, reasons: list[str]) -> dict[str, Any]:
+def _action_response(
+    row: Any,
+    decision: Decision | None,
+    reasons: list[str],
+    connection: sqlite3.Connection,
+) -> dict[str, Any]:
     amount = None if row["amount_cents"] is None else f"{Decimal(row['amount_cents']) / Decimal(100):.2f}"
     return {
         "id": row["id"],
@@ -281,16 +321,15 @@ def _action_response(row: Any, decision: Decision | None, reasons: list[str]) ->
         "intent_model": row["intent_model"],
         "intent_latency_ms": row["intent_latency_ms"],
         "intent_error": row["intent_error"],
-        "mission_text": _mission_text_for_action(row),
+        "mission_text": _mission_text_for_action(connection, row),
     }
 
 
-def _mission_text_for_action(row: Any) -> str | None:
-    with get_connection() as connection:
-        mission = connection.execute(
-            "SELECT mission_text FROM missions WHERE agent_id = ? AND active = 1 ORDER BY id DESC LIMIT 1",
-            (row["agent_id"],),
-        ).fetchone()
+def _mission_text_for_action(connection: sqlite3.Connection, row: Any) -> str | None:
+    mission = connection.execute(
+        "SELECT mission_text FROM missions WHERE agent_id = ? AND active = 1 ORDER BY id DESC LIMIT 1",
+        (row["agent_id"],),
+    ).fetchone()
     return None if mission is None else mission["mission_text"]
 
 

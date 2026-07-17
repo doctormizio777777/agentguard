@@ -18,7 +18,7 @@ def test_backend_entrypoint_initializes_and_seeds_only_empty_database() -> None:
     assert "ledger_entries" in entrypoint
     assert "seed_dashboard.py" in entrypoint
     assert "uvicorn app.main:app" in entrypoint
-    seed = (ROOT / "scripts" / "seed_dashboard.py").read_text(encoding="utf-8")
+    seed = (ROOT / "backend" / "app" / "demo_seed.py").read_text(encoding="utf-8")
     assert "refusing to reseed" in seed
 
 
