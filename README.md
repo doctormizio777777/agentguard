@@ -118,6 +118,7 @@ Accepted risks for this demo are deliberately visible:
 
 - No authentication or authorization on approve/reject: the public demo is intentionally interactive and must never contain real actions or data.
 - No idempotency keys yet: duplicate client submissions remain a known integration risk.
+- Demo reset starts a new ledger epoch and discards prior synthetic history; append-only guarantees apply within each epoch.
 - Fail-closed by design: an unavailable intent firewall moves an otherwise allowable action to human review.
 - SQLite and local Docker volume: suitable for the demo, not a production deployment topology.
 

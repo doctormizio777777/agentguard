@@ -85,6 +85,8 @@ The first action must be a blocked `500000`-cent payment to `unknown-vendor.xyz`
 
 `POST /demo/reset` rejects missing or incorrect keys. Keep `DEMO_RESET_KEY` only in Render and your password manager.
 
+Reset is intentionally destructive: it starts a new 15-entry audit epoch and removes the previous synthetic demo history. Never point this deployment mode at real actions or production data.
+
 ```bash
 curl -i -X POST \
   -H "X-Demo-Key: YOUR-DEMO-RESET-KEY" \
