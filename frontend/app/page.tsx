@@ -3,9 +3,8 @@
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { API_BASE_URL, DEMO_LINKS } from "./api-config";
 import { buildHourlySeries, sparklinePoints } from "./dashboard-utils";
-
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
 
 type IntentVerdict = {
   verdict: "aligned" | "suspicious" | "hijack_suspected";
@@ -41,6 +40,7 @@ type Summary = {
   agents_online: number;
   threats_blocked: number;
   ledger: { entries: number; valid: boolean };
+  demo?: boolean;
 };
 
 function formatMoney(value: number | string | null): string {
@@ -111,9 +111,9 @@ export default function Home() {
   const refresh = useCallback(async () => {
     try {
       const responses = await Promise.all([
-        fetch(`${backendUrl}/dashboard/summary`),
-        fetch(`${backendUrl}/actions?limit=50`),
-        fetch(`${backendUrl}/agents`),
+        fetch(`${API_BASE_URL}/dashboard/summary`),
+        fetch(`${API_BASE_URL}/actions?limit=50`),
+        fetch(`${API_BASE_URL}/agents`),
       ]);
       if (responses.some((response) => !response.ok)) throw new Error("Backend data request failed");
       const [nextSummary, nextActions, nextAgents] = await Promise.all([
@@ -184,7 +184,7 @@ export default function Home() {
   const transition = async (id: number, verb: "approve" | "reject") => {
     setBusy((current) => new Set(current).add(id));
     try {
-      const response = await fetch(`${backendUrl}/actions/${id}/${verb}`, { method: "POST" });
+      const response = await fetch(`${API_BASE_URL}/actions/${id}/${verb}`, { method: "POST" });
       if (!response.ok) throw new Error(`Action update failed with HTTP ${response.status}`);
       await refresh();
     } catch (reason) {
@@ -215,6 +215,7 @@ export default function Home() {
           <div><strong>AGENTGUARD</strong><span>MISSION CONTROL FOR AI AGENTS</span></div>
         </div>
         <div className="header-chips">
+          {summary?.demo && <span className="demo-mode-chip">PUBLIC DEMO · RESETS PERIODICALLY</span>}
           <span className="status-chip"><i className="dot dot-ok" />{summary?.agents_online ?? "—"} AGENTS ONLINE</span>
           <span className="status-chip"><i className="dot dot-danger" />{summary?.threats_blocked ?? "—"} THREATS BLOCKED</span>
           <span className="status-chip"><i className={`dot ${summary?.ledger.valid ? "dot-ok" : "dot-danger"}`} />AUDIT CHAIN {summary ? (summary.ledger.valid ? "VALID" : "BROKEN") : "—"}</span>
@@ -223,6 +224,16 @@ export default function Home() {
           </span>
         </div>
       </header>
+
+      {summary?.demo && <section className="demo-intro" aria-label="Public demo overview">
+        <div className="demo-intro-copy">
+          <strong>The intelligent firewall for AI agents — it knows if your agent is still yours</strong>
+          <span>A GPT-5.6 intent layer that catches hijacked agents static rules can&apos;t see. Watch it live below.</span>
+        </div>
+        <nav className="demo-links" aria-label="Demo resources">
+          {DEMO_LINKS.map((link) => <a key={link.href} href={link.href} target="_blank" rel="noreferrer">{link.label}</a>)}
+        </nav>
+      </section>}
 
       <section className="hero-strip">
         <div><span className="eyebrow">CONTROL ROOM / LIVE</span><h1>Mission Control</h1></div>

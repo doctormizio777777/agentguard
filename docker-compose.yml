@@ -20,9 +20,9 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
+        NEXT_PUBLIC_API_URL: http://localhost:8000
     environment:
-      NEXT_PUBLIC_BACKEND_URL: http://localhost:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
     depends_on:
       backend:
         condition: service_healthy
