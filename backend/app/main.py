@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .database import initialize_database, get_connection
+from .dashboard import get_dashboard_summary
 from .ledger import verify_chain
 from .policy import Decision
 from .risk import compute_risk, risk_components
@@ -84,11 +85,13 @@ class ActionResponse(BaseModel):
     status: ActionStatus
     decision: Decision | None = None
     policy_reason: str
+    reasons: list[str] = Field(default_factory=list)
     created_at: str
     intent_verdict: dict[str, Any] | None = None
     intent_model: str | None = None
     intent_latency_ms: int | None = None
     intent_error: str | None = None
+    mission_text: str | None = None
 
 
 @asynccontextmanager
@@ -153,7 +156,7 @@ def create_action(request: ActionCreate) -> ActionResponse:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
-    return ActionResponse(**{key: value for key, value in result.items() if key != "reasons"})
+    return ActionResponse(**result)
 
 
 @app.post("/agents/{agent_id}/mission", response_model=MissionResponse, status_code=201)
@@ -193,22 +196,27 @@ def list_actions(
     agent_id: int | None = None,
     status: ActionStatus | None = None,
     action_type: ActionType | None = None,
+    limit: int = Query(default=100, ge=1, le=1000),
 ) -> list[ActionResponse]:
     clauses: list[str] = []
     values: list[Any] = []
     if agent_id is not None:
-        clauses.append("agent_id = ?")
+        clauses.append("a.agent_id = ?")
         values.append(agent_id)
     if status is not None:
-        clauses.append("status = ?")
+        clauses.append("a.status = ?")
         values.append(status)
     if action_type is not None:
-        clauses.append("action_type = ?")
+        clauses.append("a.action_type = ?")
         values.append(action_type)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     with get_connection() as connection:
         rows = connection.execute(
-            f"SELECT * FROM actions {where} ORDER BY id DESC", values
+            f"""SELECT a.*,
+                (SELECT mission_text FROM missions m
+                 WHERE m.agent_id = a.agent_id AND m.active = 1 ORDER BY m.id DESC LIMIT 1) AS mission_text
+                FROM actions a {where} ORDER BY a.id DESC LIMIT ?""",
+            [*values, limit],
         ).fetchall()
     return [_action_response(row) for row in rows]
 
@@ -221,7 +229,7 @@ def approve_action(action_id: int) -> ActionResponse:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ActionNotPendingError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
-    return ActionResponse(**{key: value for key, value in result.items() if key != "reasons"})
+    return ActionResponse(**result)
 
 
 @app.post("/actions/{action_id}/reject", response_model=ActionResponse)
@@ -232,7 +240,7 @@ def reject_action(action_id: int) -> ActionResponse:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ActionNotPendingError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
-    return ActionResponse(**{key: value for key, value in result.items() if key != "reasons"})
+    return ActionResponse(**result)
 
 
 @app.get("/ledger")
@@ -252,6 +260,11 @@ def list_ledger(
 def ledger_verify() -> dict[str, Any]:
     with get_connection() as connection:
         return verify_chain(connection)
+
+
+@app.get("/dashboard/summary")
+def dashboard_summary() -> dict[str, Any]:
+    return get_dashboard_summary()
 
 
 def _ledger_response(row: Any) -> dict[str, Any]:
@@ -289,9 +302,11 @@ def _action_response(row: Any, decision: Decision | None = None) -> ActionRespon
         status=row["status"],
         decision=decision,
         policy_reason=row["policy_reason"],
+        reasons=[] if not row["policy_reason"] else [reason.strip() for reason in row["policy_reason"].split(";")],
         created_at=row["created_at"],
         intent_verdict=None if row["intent_verdict"] is None else json.loads(row["intent_verdict"]),
         intent_model=row["intent_model"],
         intent_latency_ms=row["intent_latency_ms"],
         intent_error=row["intent_error"],
+        mission_text=row["mission_text"] if "mission_text" in row.keys() else None,
     )

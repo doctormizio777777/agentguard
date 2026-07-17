@@ -281,7 +281,17 @@ def _action_response(row: Any, decision: Decision | None, reasons: list[str]) ->
         "intent_model": row["intent_model"],
         "intent_latency_ms": row["intent_latency_ms"],
         "intent_error": row["intent_error"],
+        "mission_text": _mission_text_for_action(row),
     }
+
+
+def _mission_text_for_action(row: Any) -> str | None:
+    with get_connection() as connection:
+        mission = connection.execute(
+            "SELECT mission_text FROM missions WHERE agent_id = ? AND active = 1 ORDER BY id DESC LIMIT 1",
+            (row["agent_id"],),
+        ).fetchone()
+    return None if mission is None else mission["mission_text"]
 
 
 def _mission_response(row: Any) -> dict[str, Any]:
