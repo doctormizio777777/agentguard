@@ -15,7 +15,7 @@ def test_initialize_database_creates_schema_and_cent_policy():
             "SELECT name FROM sqlite_master WHERE type = 'table'"
         ).fetchall()
     }
-    assert {"agents", "actions", "policies"}.issubset(tables)
+    assert {"agents", "actions", "policies", "ledger_entries"}.issubset(tables)
 
     action_columns = {
         row[1]: row[2]

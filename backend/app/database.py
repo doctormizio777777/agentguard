@@ -70,6 +70,20 @@ def initialize_database(connection: sqlite3.Connection) -> None:
             active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS ledger_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seq INTEGER UNIQUE NOT NULL,
+            action_id INTEGER NOT NULL,
+            event_type TEXT NOT NULL CHECK (event_type IN (
+                'action_evaluated', 'action_approved', 'action_rejected'
+            )),
+            snapshot TEXT NOT NULL,
+            prev_hash TEXT NOT NULL,
+            entry_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (action_id) REFERENCES actions (id)
+        );
         """
     )
     connection.execute(

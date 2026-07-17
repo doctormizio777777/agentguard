@@ -5,11 +5,12 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .database import initialize_database, get_connection
+from .ledger import append_entry, verify_chain
 from .policy import Decision, decision_to_status, evaluate
 
 
@@ -110,6 +111,7 @@ def create_action(request: ActionCreate) -> ActionResponse:
         raise HTTPException(status_code=422, detail="payment requires amount")
 
     with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
         if connection.execute("SELECT 1 FROM agents WHERE id = ?", (request.agent_id,)).fetchone() is None:
             raise HTTPException(status_code=404, detail="agent not found")
 
@@ -150,6 +152,12 @@ def create_action(request: ActionCreate) -> ActionResponse:
             ),
         )
         row = connection.execute("SELECT * FROM actions WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        append_entry(
+            connection,
+            row["id"],
+            "action_evaluated",
+            _ledger_snapshot(row, decision, result["reasons"]),
+        )
     return _action_response(row, decision)
 
 
@@ -190,6 +198,7 @@ def reject_action(action_id: int) -> ActionResponse:
 
 def _decide_pending_action(action_id: int, status: ActionStatus, decision_reason: str) -> ActionResponse:
     with get_connection() as connection:
+        connection.execute("BEGIN IMMEDIATE")
         row = connection.execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
         if row is None:
             raise HTTPException(status_code=404, detail="action not found")
@@ -201,7 +210,34 @@ def _decide_pending_action(action_id: int, status: ActionStatus, decision_reason
             (status, policy_reason, action_id),
         )
         updated = connection.execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
+        event_type = "action_approved" if status == ALLOWED_STATUS else "action_rejected"
+        decision = "ALLOW" if status == ALLOWED_STATUS else "BLOCK"
+        append_entry(
+            connection,
+            action_id,
+            event_type,
+            _ledger_snapshot(updated, decision, [policy_reason]),
+        )
     return _action_response(updated)
+
+
+@app.get("/ledger")
+def list_ledger(
+    limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
+) -> list[dict[str, Any]]:
+    with get_connection() as connection:
+        rows = connection.execute(
+            "SELECT * FROM ledger_entries ORDER BY seq DESC LIMIT ? OFFSET ?",
+            (limit, offset),
+        ).fetchall()
+    return [_ledger_response(row) for row in rows]
+
+
+@app.get("/ledger/verify")
+def ledger_verify() -> dict[str, Any]:
+    with get_connection() as connection:
+        return verify_chain(connection)
 
 
 def _policy_context(connection: Any, agent_id: int, action_type: ActionType) -> dict[str, int]:
@@ -227,6 +263,31 @@ def _policy_context(connection: Any, agent_id: int, action_type: ActionType) -> 
             (agent_id, ALLOWED_STATUS),
         ).fetchone()[0]
     return context
+
+
+def _ledger_snapshot(row: Any, decision: Decision, reasons: list[str]) -> dict[str, Any]:
+    return {
+        "agent_id": row["agent_id"],
+        "action_type": row["action_type"],
+        "amount_cents": row["amount_cents"],
+        "currency": row["currency"],
+        "counterparty": row["counterparty"],
+        "decision": decision,
+        "reasons": reasons,
+    }
+
+
+def _ledger_response(row: Any) -> dict[str, Any]:
+    return {
+        "id": row["id"],
+        "seq": row["seq"],
+        "action_id": row["action_id"],
+        "event_type": row["event_type"],
+        "snapshot": json.loads(row["snapshot"]),
+        "prev_hash": row["prev_hash"],
+        "entry_hash": row["entry_hash"],
+        "created_at": row["created_at"],
+    }
 
 
 def _amount_to_cents(amount: Decimal | None) -> int | None:

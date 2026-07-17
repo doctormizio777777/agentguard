@@ -135,3 +135,20 @@ def test_actions_can_be_filtered_newest_first(client, agent):
 
     assert response.status_code == 200
     assert [item["id"] for item in response.json()] == [second.json()["id"], first.json()["id"]]
+
+
+def test_action_and_approval_flow_is_recorded_in_ledger(client, agent):
+    blocked = create_action(
+        client, agent["id"], "system_command", counterparty="server", payload={"command": "rm -rf /data"}
+    )
+    pending = create_action(client, agent["id"], "payment", amount=700.00, counterparty="openai.com")
+    approved = client.post(f"/actions/{pending.json()['id']}/approve")
+
+    assert blocked.status_code == 201
+    assert approved.status_code == 200
+    ledger = client.get("/ledger")
+    assert ledger.status_code == 200
+    assert [entry["event_type"] for entry in reversed(ledger.json())] == [
+        "action_evaluated", "action_evaluated", "action_approved"
+    ]
+    assert client.get("/ledger/verify").json()["valid"] is True
