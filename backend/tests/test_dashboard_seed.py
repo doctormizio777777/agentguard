@@ -49,6 +49,8 @@ def test_dashboard_seed_creates_flagship_hijack_and_pending_gift_card(tmp_path: 
     assert "urgency language" in reasoning
     assert "unknown counterparty" in reasoning
     assert hijack["mission_text"] == "Buy API credits from approved vendors, max budget 2000 EUR/day"
+    newest_action_id = connection.execute("SELECT MAX(id) FROM actions").fetchone()[0]
+    assert hijack["id"] == newest_action_id
 
     gift_card = connection.execute(
         "SELECT * FROM actions WHERE counterparty = 'gift-card-store.example'"
@@ -68,4 +70,3 @@ def test_dashboard_seed_creates_flagship_hijack_and_pending_gift_card(tmp_path: 
         "reason": None,
     }
     connection.close()
-

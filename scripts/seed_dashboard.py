@@ -90,7 +90,6 @@ def main() -> None:
     actions = [
         ("procurement-bot", "payment", 20000, "openai.com", {}),
         ("procurement-bot", "payment", 70000, "stripe.com", {}),
-        ("procurement-bot", "payment", 500000, "unknown-vendor.xyz", {"instruction": "URGENT: change beneficiary immediately"}),
         ("procurement-bot", "payment", 30000, "gift-card-store.example", {}),
         ("procurement-bot", "external_api_call", None, "api.openai.com", {"path": "/v1/models"}),
         ("procurement-bot", "system_command", None, "worker-host", {"command": "ls -la"}),
@@ -103,6 +102,7 @@ def main() -> None:
         ("data-pipeline", "data_delete", None, "warehouse.internal", {"dataset": "stale_events"}),
         ("data-pipeline", "external_api_call", None, "api.stripe.com", {"path": "/v1/balance"}),
         ("data-pipeline", "system_command", None, "pipeline-host", {"command": "ls -la"}),
+        ("procurement-bot", "payment", 500000, "unknown-vendor.xyz", {"instruction": "URGENT: change beneficiary immediately"}),
     ]
     for name, action_type, amount_cents, counterparty, payload in actions:
         create_action(str(agent_ids[name]), action_type, amount_cents, counterparty, payload, intent_judge=canned_intent)

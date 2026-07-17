@@ -2,7 +2,7 @@
   "name": "agent-payment-guardrail-dashboard",
   "version": "0.1.0",
   "private": true,
-  "scripts": {"dev": "next dev", "build": "next build", "start": "next start", "lint": "next lint"},
+  "scripts": {"dev": "next dev", "build": "next build", "start": "next start", "lint": "next lint", "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test tests/*.test.mjs"},
   "dependencies": {"next": "15.5.9", "react": "19.1.0", "react-dom": "19.1.0"},
   "devDependencies": {
     "@types/node": "22.15.0", "@types/react": "19.1.0", "@types/react-dom": "19.1.0",
