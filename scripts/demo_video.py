@@ -74,6 +74,8 @@ def action_request_body(arguments: dict[str, Any]) -> dict[str, Any]:
     if amount_cents is not None:
         if isinstance(amount_cents, bool) or not isinstance(amount_cents, int):
             raise ValueError("amount_cents must be an integer")
+        if amount_cents < 0:
+            raise ValueError("amount_cents must be non-negative")
         body["amount"] = f"{amount_cents // 100}.{amount_cents % 100:02d}"
     return body
 

@@ -66,6 +66,19 @@ def test_payment_tool_arguments_convert_to_decimal_string_without_float() -> Non
     assert isinstance(body["amount"], str)
 
 
+def test_payment_tool_arguments_reject_negative_minor_units() -> None:
+    from demo_video import action_request_body
+
+    with pytest.raises(ValueError, match="non-negative"):
+        action_request_body(
+            {
+                "agent_id": "7",
+                "action_type": "payment",
+                "payload": {"counterparty": "openai.com", "amount_cents": -1},
+            }
+        )
+
+
 def test_banner_contains_ansi_and_all_required_section_titles() -> None:
     from demo_video import SECTION_TITLES, banner
 
