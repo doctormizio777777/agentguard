@@ -31,12 +31,12 @@ test("app icon and header use the aperture mark", () => {
 });
 
 
-test("Mission Control contains the guided demo drawer and attack trigger", () => {
+test("Mission Control contains the guided tour overlay and attack trigger", () => {
   const page = readFileSync(join(APP_DIR, "mission-control.tsx"), "utf8");
   const css = readFileSync(join(APP_DIR, "globals.css"), "utf8");
   assert.match(page, /RUN THE ATTACK DEMO/);
-  assert.match(page, /GUIDED DEMO/);
+  assert.match(page, /guided-tour-card/);
   assert.match(page, /scrollIntoView/);
-  assert.match(css, /\.guided-demo-panel/);
+  assert.match(css, /\.guided-tour-card/);
   assert.match(css, /\.guided-focus/);
 });

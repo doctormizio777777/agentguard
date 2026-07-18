@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { API_BASE_URL, DEMO_LINKS } from "./api-config";
 import { AgentGuardMark } from "./agentguard-mark";
 import { actionStatusTitle, buildHourlySeries, displayIntentModel, sparklinePoints } from "./dashboard-utils";
-import { GUIDED_DEMO_STEPS, scenarioStepUrl, type ScenarioStepResult } from "./guided-demo";
+import { GUIDED_TOUR_STEPS, requestScenarioStep, type GuidedTourTone, type ScenarioStepResult } from "./guided-demo";
 
 type IntentVerdict = {
   verdict: "aligned" | "suspicious" | "hijack_suspected";
@@ -57,6 +57,11 @@ type TamperResponse = {
   already_restored?: boolean;
   verification: LedgerVerification;
   detail?: string;
+};
+type GuidedTourHighlight = {
+  kind: "agent" | "action" | "approval" | "evidence" | "tamper";
+  tone: GuidedTourTone;
+  actionId?: number;
 };
 
 function formatMoney(value: number | string | null): string {
@@ -125,19 +130,21 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [pollingActive, setPollingActive] = useState(true);
-  const [guidedDemoOpen, setGuidedDemoOpen] = useState(initialDemoOpen);
-  const [scenarioCompletedStep, setScenarioCompletedStep] = useState(-1);
-  const [scenarioResults, setScenarioResults] = useState<Record<number, ScenarioStepResult>>({});
-  const [scenarioBusyStep, setScenarioBusyStep] = useState<number | null>(null);
-  const [scenarioError, setScenarioError] = useState<string | null>(null);
-  const [guidedHighlightId, setGuidedHighlightId] = useState<number | null>(null);
+  const [guidedTourOpen, setGuidedTourOpen] = useState(initialDemoOpen);
+  const [tourStepIndex, setTourStepIndex] = useState(0);
+  const [tourComplete, setTourComplete] = useState(false);
+  const [tourBusy, setTourBusy] = useState(false);
+  const [tourError, setTourError] = useState<string | null>(null);
+  const [tourHighlight, setTourHighlight] = useState<GuidedTourHighlight | null>(null);
   const [tamperVerification, setTamperVerification] = useState<LedgerVerification | null>(null);
   const [tamperBusy, setTamperBusy] = useState<"tamper" | "restore" | null>(null);
   const [tamperError, setTamperError] = useState<string | null>(null);
   const [, setClockTick] = useState(0);
   const knownActionIds = useRef<Set<number> | null>(null);
   const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const guidedHighlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialTourStarted = useRef(false);
+  const lastScenarioActionId = useRef<number | null>(null);
+  const tourSession = useRef(0);
 
   const refresh = useCallback(async () => {
     try {
@@ -213,7 +220,6 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
 
   useEffect(() => () => {
     if (highlightTimeout.current) clearTimeout(highlightTimeout.current);
-    if (guidedHighlightTimeout.current) clearTimeout(guidedHighlightTimeout.current);
   }, []);
 
   const transition = async (id: number, verb: "approve" | "reject") => {
@@ -233,45 +239,128 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
     }
   };
 
-  const focusScenarioAction = (step: number, actionId: number) => {
-    setGuidedHighlightId(actionId);
-    if (step === 3) {
-      setExpanded((current) => new Set(current).add(actionId));
-    }
-    if (guidedHighlightTimeout.current) clearTimeout(guidedHighlightTimeout.current);
-    guidedHighlightTimeout.current = setTimeout(() => setGuidedHighlightId(null), 2600);
-    setTimeout(() => {
-      const targetId = step === 4 ? `approval-${actionId}` : `action-${actionId}`;
-      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 80);
-  };
+  const exitGuidedTour = useCallback(() => {
+    tourSession.current += 1;
+    setGuidedTourOpen(false);
+    setTourBusy(false);
+    setTourError(null);
+    setTourHighlight(null);
+  }, []);
 
-  const runScenarioStep = async (step: number) => {
-    setScenarioBusyStep(step);
-    setScenarioError(null);
+  const focusTourTarget = useCallback((step: number, result: ScenarioStepResult) => {
+    const metadata = GUIDED_TOUR_STEPS[step];
+    let highlight: GuidedTourHighlight;
+    let targetId: string;
+
     if (step === 0) {
-      setScenarioCompletedStep(-1);
-      setScenarioResults({});
-      setGuidedHighlightId(null);
+      highlight = { kind: "agent", tone: metadata.tone };
+      targetId = "tour-agent-procurement";
+    } else if (step === 1) {
+      const actionId = result.action?.id;
+      if (actionId) lastScenarioActionId.current = actionId;
+      highlight = { kind: "action", tone: metadata.tone, actionId };
+      targetId = actionId ? `action-${actionId}` : "feed-panel";
+    } else if (step === 2) {
+      const actionId = lastScenarioActionId.current ?? undefined;
+      highlight = { kind: "action", tone: metadata.tone, actionId };
+      targetId = actionId ? `action-${actionId}` : "feed-panel";
+    } else if (step === 3) {
+      const actionId = result.action?.id;
+      if (actionId) {
+        lastScenarioActionId.current = actionId;
+        setExpanded((current) => new Set(current).add(actionId));
+      }
+      highlight = { kind: "action", tone: metadata.tone, actionId };
+      targetId = actionId ? `action-${actionId}` : "feed-panel";
+    } else if (step === 4) {
+      const actionId = result.action?.id;
+      if (actionId) lastScenarioActionId.current = actionId;
+      highlight = { kind: "approval", tone: metadata.tone, actionId };
+      targetId = actionId ? `approval-${actionId}` : "approval-panel";
+    } else {
+      highlight = { kind: "evidence", tone: metadata.tone };
+      targetId = "audit-panel";
     }
+
+    setTourHighlight(highlight);
+    setTimeout(() => {
+      const target = document.getElementById(targetId) ?? document.getElementById("agents-panel");
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  }, []);
+
+  const executeGuidedTourStep = useCallback(async (step: number, sessionId = tourSession.current) => {
+    setTourBusy(true);
+    setTourError(null);
+    if (step === 0) {
+      lastScenarioActionId.current = null;
+      setTourComplete(false);
+      setTourHighlight(null);
+    }
+
     try {
-      const response = await fetch(scenarioStepUrl(API_BASE_URL), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step }),
-      });
-      const result = await response.json() as ScenarioStepResult & { detail?: string };
-      if (!response.ok) throw new Error(result.detail ?? `Scenario step failed with HTTP ${response.status}`);
-      setScenarioResults((current) => step === 0 ? { 0: result } : { ...current, [step]: result });
-      setScenarioCompletedStep(step);
-      if (step === 0 || result.action) await refresh();
-      if (result.action) focusScenarioAction(step, result.action.id);
+      const result = await requestScenarioStep(API_BASE_URL, step);
+      await refresh();
+      if (sessionId !== tourSession.current) return;
+      setTourStepIndex(step);
+      focusTourTarget(step, result);
     } catch (reason) {
-      setScenarioError(reason instanceof Error ? reason.message : "Scenario step failed");
+      if (sessionId === tourSession.current) {
+        setTourError(reason instanceof Error ? reason.message : "Scenario step failed");
+      }
     } finally {
-      setScenarioBusyStep(null);
+      if (sessionId === tourSession.current) setTourBusy(false);
     }
-  };
+  }, [focusTourTarget, refresh]);
+
+  const startGuidedTour = useCallback(() => {
+    const sessionId = tourSession.current + 1;
+    tourSession.current = sessionId;
+    setGuidedTourOpen(true);
+    setTourStepIndex(0);
+    setTourComplete(false);
+    setTourError(null);
+    setTourHighlight(null);
+    void executeGuidedTourStep(0, sessionId);
+  }, [executeGuidedTourStep]);
+
+  const advanceGuidedTour = useCallback(() => {
+    if (tourBusy || tourError) return;
+    if (tourStepIndex === GUIDED_TOUR_STEPS.length - 1) {
+      setTourComplete(true);
+      setTourHighlight(null);
+      return;
+    }
+    void executeGuidedTourStep(tourStepIndex + 1);
+  }, [executeGuidedTourStep, tourBusy, tourError, tourStepIndex]);
+
+  const retryGuidedTourStep = useCallback(() => {
+    void executeGuidedTourStep(tourStepIndex);
+  }, [executeGuidedTourStep, tourStepIndex]);
+
+  const focusTamperWidget = useCallback(() => {
+    setGuidedTourOpen(false);
+    setTourHighlight({ kind: "tamper", tone: "danger" });
+    setTimeout(() => {
+      document.getElementById("audit-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  }, []);
+
+  useEffect(() => {
+    if (initialDemoOpen && !initialTourStarted.current) {
+      initialTourStarted.current = true;
+      startGuidedTour();
+    }
+  }, [initialDemoOpen, startGuidedTour]);
+
+  useEffect(() => {
+    if (!guidedTourOpen) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") exitGuidedTour();
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [exitGuidedTour, guidedTourOpen]);
 
   const runTamperTest = async () => {
     setTamperBusy("tamper");
@@ -317,6 +406,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const chainMessage = chainBroken
     ? `CHAIN BROKEN — first_broken_seq: ${tamperVerification?.first_broken_seq ?? "unknown"} — this is what tampering looks like`
     : summary ? "CHAIN VERIFIED" : "CHECKING CHAIN";
+  const tourStep = GUIDED_TOUR_STEPS[tourStepIndex];
 
   return (
     <main className="console-shell">
@@ -346,9 +436,9 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
           <button
             type="button"
             className="demo-attack-trigger"
-            aria-expanded={guidedDemoOpen}
-            aria-controls="guided-demo-panel"
-            onClick={() => setGuidedDemoOpen(true)}
+            aria-expanded={guidedTourOpen}
+            aria-controls="guided-tour-card"
+            onClick={startGuidedTour}
           >RUN THE ATTACK DEMO</button>
           {DEMO_LINKS.map((link) => <a key={link.href} href={link.href} target="_blank" rel="noreferrer">{link.label}</a>)}
         </nav>
@@ -369,7 +459,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
       </section>
 
       <div className="workspace-grid">
-        <section className="panel feed-panel">
+        <section id="feed-panel" className="panel feed-panel">
           <PanelHeading eyebrow="STREAM / REAL-TIME" title="Live Action Feed" count={`${actions.length} EVENTS`} />
           <div className="feed-list">
             {loading && !actions.length ? <SkeletonRows /> : actions.map((action, index) => (
@@ -380,7 +470,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
                 busy={busy.has(action.id)}
                 index={index}
                 isNew={recentActionIds.has(action.id)}
-                guidedFocus={guidedHighlightId === action.id}
+                guidedTone={tourHighlight?.kind === "action" && tourHighlight.actionId === action.id ? tourHighlight.tone : undefined}
                 onToggle={() => setExpanded((current) => {
                   const next = new Set(current);
                   next.has(action.id) ? next.delete(action.id) : next.add(action.id);
@@ -393,18 +483,18 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
         </section>
 
         <aside className="side-column">
-          <section className="panel approval-panel">
+          <section id="approval-panel" className="panel approval-panel">
             <PanelHeading eyebrow="HUMAN-IN-THE-LOOP" title="Approval Queue" count={`${pendingActions.length} WAITING`} />
             {pendingActions.length ? pendingActions.map((action) => (
               <div
                 id={`approval-${action.id}`}
-                className={`approval-item ${guidedHighlightId === action.id ? "guided-focus" : ""}`}
+                className={`approval-item ${tourHighlight?.kind === "approval" && tourHighlight.actionId === action.id ? `guided-focus guided-focus-${tourHighlight.tone}` : ""}`}
                 key={action.id}
               >
                 <div className="approval-title"><strong>{actionLabel(action)}</strong><span>{formatMoney(action.amount)}</span></div>
                 <p>{action.counterparty}</p>
                 <small>Action #{action.id} · {timeAgo(action.created_at)}</small>
-                {guidedHighlightId === action.id && <span className="guided-approval-hint">now approve or reject it yourself →</span>}
+                {tourHighlight?.kind === "approval" && tourHighlight.actionId === action.id && <span className="guided-approval-hint">now approve or reject it yourself →</span>}
                 <div className="approval-actions">
                   <button className="approve-button" disabled={busy.has(action.id)} onClick={() => void transition(action.id, "approve")}>APPROVE</button>
                   <button className="reject-button" disabled={busy.has(action.id)} onClick={() => void transition(action.id, "reject")}>REJECT</button>
@@ -413,12 +503,18 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
             )) : <EmptyState label="No actions waiting for approval" />}
           </section>
 
-          <section className="panel agents-panel">
+          <section
+            id="agents-panel"
+            className={`panel agents-panel ${tourHighlight?.kind === "agent" ? `guided-focus guided-focus-${tourHighlight.tone}` : ""} ${tourHighlight?.kind === "evidence" ? `guided-focus guided-focus-${tourHighlight.tone}` : ""}`}
+          >
             <PanelHeading eyebrow="RISK TELEMETRY" title="Agents" count={`${agents.length} REGISTERED`} />
-            {agents.map((agent) => <AgentRisk key={agent.id} agent={agent} />)}
+            {agents.map((agent) => <AgentRisk key={agent.id} agent={agent} guidedTone={tourHighlight?.kind === "agent" && agent.name === "procurement-bot" ? tourHighlight.tone : undefined} />)}
           </section>
 
-          <section className={`panel audit-panel ${chainBroken ? "audit-panel-danger" : ""}`}>
+          <section
+            id="audit-panel"
+            className={`panel audit-panel ${chainBroken ? "audit-panel-danger" : ""} ${tourHighlight?.kind === "evidence" || tourHighlight?.kind === "tamper" ? `guided-focus guided-focus-${tourHighlight.tone}` : ""}`}
+          >
             <PanelHeading eyebrow="INTEGRITY MONITOR" title="Audit Chain" count={summary ? `${summary.ledger.entries} ENTRIES` : "—"} />
             <div className="chain-status">
               <span className={`chain-icon ${chainBroken ? "invalid" : "valid"}`}>{chainBroken ? "!" : "OK"}</span>
@@ -437,67 +533,40 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
 
       {actions.some((action) => action.intent_verdict?.verdict === "hijack_suspected") && <div className="threat-footnote">Threat response active: hijack verdict remains blocked pending investigation.</div>}
 
-      <button
-        type="button"
-        className={`guided-demo-scrim ${guidedDemoOpen ? "is-open" : ""}`}
-        aria-label="Close guided demo"
-        tabIndex={guidedDemoOpen ? 0 : -1}
-        onClick={() => setGuidedDemoOpen(false)}
-      />
-      <aside
-        id="guided-demo-panel"
-        className={`guided-demo-panel ${guidedDemoOpen ? "is-open" : ""}`}
-        aria-hidden={!guidedDemoOpen}
-      >
-        <header className="guided-demo-header">
-          <div>
-            <span className="eyebrow">CONTROLLED INCIDENT / 6 STEPS</span>
-            <h2>GUIDED DEMO</h2>
-            <p>Run each step in order. Every staged action uses the live policy service and audit ledger with a free canned intent verdict.</p>
-          </div>
-          <div className="guided-demo-header-actions">
-            <button type="button" disabled={scenarioBusyStep !== null} onClick={() => void runScenarioStep(0)}>RESTART</button>
-            <button type="button" aria-label="Close guided demo" onClick={() => setGuidedDemoOpen(false)}>CLOSE</button>
-          </div>
-        </header>
-
-        {scenarioError && <div className="guided-demo-error" role="alert">{scenarioError}</div>}
-
-        <ol className="guided-demo-steps">
-          {GUIDED_DEMO_STEPS.map((item) => {
-            const complete = item.step <= scenarioCompletedStep;
-            const available = item.step === 0
-              ? scenarioCompletedStep < 0
-              : item.step === scenarioCompletedStep + 1;
-            const result = scenarioResults[item.step];
-            return (
-              <li
-                key={item.step}
-                className={`${complete ? "is-complete" : ""} ${available ? "is-current" : ""}`}
-              >
-                <div className="guided-step-copy">
-                  <span className="guided-step-number">0{item.step}</span>
-                  <div><strong>{item.title}</strong><p>{item.explanation}</p></div>
-                  <button
-                    type="button"
-                    disabled={!available || scenarioBusyStep !== null}
-                    onClick={() => void runScenarioStep(item.step)}
-                  >
-                    {scenarioBusyStep === item.step ? "RUNNING" : complete ? "DONE" : "RUN"}
-                  </button>
-                </div>
-
-                {item.step === 0 && result?.mission_text && <div className="guided-result"><span>MISSION</span><p>“{result.mission_text}”</p></div>}
-                {item.step === 1 && result?.action && <div className="guided-result result-allowed"><span>RESULT</span><p>ALLOWED · {result.action.counterparty} · EUR {result.action.amount}</p></div>}
-                {item.step === 2 && result?.poisoned_document && <pre className="guided-poison">{result.poisoned_document}</pre>}
-                {item.step === 3 && result?.action && <div className="guided-result result-blocked"><span>RESULT</span><p>BLOCKED · HIJACK SUSPECTED · {result.action.intent_verdict?.confidence.toFixed(2)}</p></div>}
-                {item.step === 4 && result?.action && <div className="guided-result result-pending"><span>RESULT</span><p>PENDING · suspicious intent · {result.action.intent_verdict?.confidence.toFixed(2)}</p><b>now approve or reject it yourself →</b></div>}
-                {item.step === 5 && result?.ledger && <div className="guided-result guided-verify-result"><span>EVIDENCE</span><p>CHAIN {result.ledger.valid ? "VALID" : "BROKEN"} · {result.ledger.entries_checked} ENTRIES</p><b>AGENT RISK {result.risk_score}</b></div>}
-              </li>
-            );
-          })}
-        </ol>
-      </aside>
+      {guidedTourOpen && <>
+        <div className="guided-tour-scrim" aria-hidden="true" />
+        <aside
+          id="guided-tour-card"
+          className={`guided-tour-card guided-tour-${tourComplete ? "complete" : tourStep.tone}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="guided-tour-title"
+          aria-live="polite"
+        >
+          {!tourComplete ? <>
+            <span className="guided-tour-counter">STEP {tourStepIndex + 1} / 6</span>
+            <h2 id="guided-tour-title">{tourStep.title}</h2>
+            <p>{tourStep.narration}</p>
+            {tourBusy && <div className="guided-tour-progress">STAGING SCENARIO STEP {tourStep.scenarioStep}…</div>}
+            {tourError && <div className="guided-tour-error" role="alert">
+              <span>{tourError}</span>
+              <button type="button" onClick={retryGuidedTourStep}>RETRY STEP</button>
+            </div>}
+            <div className="guided-tour-actions">
+              {!tourError && <button type="button" className="guided-tour-next" disabled={tourBusy} onClick={advanceGuidedTour}>NEXT →</button>}
+              <button type="button" className="guided-tour-exit" onClick={exitGuidedTour}>EXIT TOUR</button>
+            </div>
+          </> : <>
+            <span className="guided-tour-counter">6 / 6 COMPLETE</span>
+            <h2 id="guided-tour-title">TOUR COMPLETE — now break something yourself</h2>
+            <p>The scenario stays on screen. Test the real ledger integrity control or replay the six-step incident.</p>
+            <div className="guided-tour-actions guided-tour-complete-actions">
+              <button type="button" className="guided-tour-tamper" onClick={focusTamperWidget}>TAMPER THE LEDGER</button>
+              <button type="button" className="guided-tour-restart" onClick={startGuidedTour}>RESTART TOUR</button>
+            </div>
+          </>}
+        </aside>
+      </>}
     </main>
   );
 }
@@ -542,13 +611,13 @@ function SkeletonRows() {
   return <>{[1, 2, 3].map((item) => <div className="skeleton-row" key={item}><span /><span /><span /></div>)}</>;
 }
 
-function ActionRow({ action, expanded, busy, index, isNew, guidedFocus, onToggle, onTransition }: {
+function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle, onTransition }: {
   action: Action;
   expanded: boolean;
   busy: boolean;
   index: number;
   isNew: boolean;
-  guidedFocus: boolean;
+  guidedTone?: GuidedTourTone;
   onToggle: () => void;
   onTransition: (id: number, verb: "approve" | "reject") => Promise<void>;
 }) {
@@ -558,7 +627,7 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedFocus, onToggle
   return (
     <article
       id={`action-${action.id}`}
-      className={`action-row status-${action.status} ${hijack ? "hijack-row" : ""} ${isNew ? "new-row" : "feed-entry"} ${guidedFocus ? "guided-focus" : ""}`}
+      className={`action-row status-${action.status} ${hijack ? "hijack-row" : ""} ${isNew ? "new-row" : "feed-entry"} ${guidedTone ? `guided-focus guided-focus-${guidedTone}` : ""}`}
       style={rowStyle}
     >
       <button className="action-summary" onClick={onToggle} aria-expanded={expanded}>
@@ -593,11 +662,14 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedFocus, onToggle
   );
 }
 
-function AgentRisk({ agent }: { agent: Agent }) {
+function AgentRisk({ agent, guidedTone }: { agent: Agent; guidedTone?: GuidedTourTone }) {
   const tone = agent.risk_score >= 70 ? "high" : agent.risk_score >= 35 ? "medium" : "low";
   const riskStyle = { "--risk-width": `${agent.risk_score}%` } as CSSProperties;
   return (
-    <div className="agent-risk">
+    <div
+      id={agent.name === "procurement-bot" ? "tour-agent-procurement" : undefined}
+      className={`agent-risk ${guidedTone ? `guided-focus guided-focus-${guidedTone}` : ""}`}
+    >
       <div className="agent-risk-head"><div><strong>{agent.name}</strong><small>{agent.declared_mission}</small></div><b className={`risk-${tone}`}>{agent.risk_score}</b></div>
       <div className="risk-track"><i className="risk-tick risk-tick-low" /><i className="risk-tick risk-tick-high" /><span className={`risk-fill risk-fill-${tone}`} style={riskStyle} /></div>
       <span className="risk-label">{tone.toUpperCase()} RISK</span>
