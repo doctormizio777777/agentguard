@@ -1,6 +1,6 @@
 # AgentGuard — the intelligent firewall for AI agents. It knows if your agent is still yours.
 
-**Live demo:** _Vercel URL will be added after deployment_ · [Run locally with Docker](#3-try-it-in-60-seconds)
+**Live demo — start here:** [AgentGuard landing](https://agentguard-dusky.vercel.app) · [Mission Control console](https://agentguard-dusky.vercel.app/console) · [Run locally with Docker](#3-try-it-in-60-seconds)
 
 ## 1. The problem
 
@@ -26,7 +26,7 @@ Docker is the intended path. No `.env` file or OpenAI/OpenRouter key is required
 docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000). You will see:
+Open [http://localhost:3000](http://localhost:3000) for the product story and live proof, then launch [Mission Control](http://localhost:3000/console). You will see:
 
 1. Mission Control with the seeded agents and live KPI cards.
 2. A red `HIJACK SUSPECTED` payment event expanded in the action feed.

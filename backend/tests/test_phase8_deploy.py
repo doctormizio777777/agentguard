@@ -96,10 +96,12 @@ def test_deploy_guide_covers_required_order_settings_and_verification() -> None:
         assert expected in deploy
 
 
-def test_readme_has_live_demo_placeholder_beside_local_option() -> None:
+def test_readme_lists_live_landing_before_console_and_local_option() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert "**Live demo:** _Vercel URL will be added after deployment_" in readme
+    landing = readme.index("[AgentGuard landing](https://agentguard-dusky.vercel.app)")
+    console = readme.index("[Mission Control console](https://agentguard-dusky.vercel.app/console)")
+    assert landing < console
     assert "[Run locally with Docker](#3-try-it-in-60-seconds)" in readme
 
 
