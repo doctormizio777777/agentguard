@@ -95,7 +95,12 @@ function useInitialCountUp(target: number | null): number | null {
   return displayValue;
 }
 
-export default function MissionControl() {
+type MissionControlProps = {
+  initialDemoOpen?: boolean;
+};
+
+
+export default function MissionControl({ initialDemoOpen = false }: MissionControlProps) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [actions, setActions] = useState<Action[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -106,7 +111,7 @@ export default function MissionControl() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [pollingActive, setPollingActive] = useState(true);
-  const [guidedDemoOpen, setGuidedDemoOpen] = useState(false);
+  const [guidedDemoOpen, setGuidedDemoOpen] = useState(initialDemoOpen);
   const [scenarioCompletedStep, setScenarioCompletedStep] = useState(-1);
   const [scenarioResults, setScenarioResults] = useState<Record<number, ScenarioStepResult>>({});
   const [scenarioBusyStep, setScenarioBusyStep] = useState<number | null>(null);

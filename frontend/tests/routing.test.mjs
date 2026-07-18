@@ -32,3 +32,15 @@ test("Mission Control moves intact to the console route with an About link", () 
   assert.match(missionControl, /href=["']\/["']/);
   assert.match(missionControl, /About/);
 });
+
+
+test("the console demo query opens the guided walkthrough on first render", () => {
+  const consolePage = readFileSync(join(APP_DIR, "console", "page.tsx"), "utf8");
+  const missionControl = readFileSync(join(APP_DIR, "mission-control.tsx"), "utf8");
+
+  assert.match(consolePage, /searchParams/);
+  assert.match(consolePage, /demo\s*===\s*["']1["']/);
+  assert.match(consolePage, /initialDemoOpen=/);
+  assert.match(missionControl, /initialDemoOpen/);
+  assert.match(missionControl, /useState\(initialDemoOpen\)/);
+});

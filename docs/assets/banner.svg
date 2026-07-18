@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">AgentGuard — the intelligent firewall for AI agents</title>
+  <desc id="desc">AgentGuard aperture mark with the product promise and audited security layers.</desc>
+  <defs>
+    <radialGradient id="glow" cx="82%" cy="8%" r="72%">
+      <stop offset="0" stop-color="#75aaff" stop-opacity="0.2" />
+      <stop offset="0.5" stop-color="#75aaff" stop-opacity="0.04" />
+      <stop offset="1" stop-color="#0b0e14" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#75aaff" stroke-opacity="0.055" />
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="#0b0e14" />
+  <rect width="1200" height="630" fill="url(#grid)" />
+  <rect width="1200" height="630" fill="url(#glow)" />
+  <path d="M72 92C91 70 129 70 148 92C129 114 91 114 72 92Z" fill="none" stroke="#75aaff" stroke-width="4" />
+  <circle cx="110" cy="92" r="17" fill="none" stroke="#75aaff" stroke-width="4" stroke-dasharray="15 8" />
+  <circle cx="110" cy="92" r="5" fill="#75aaff" />
+  <text x="174" y="99" fill="#f0f2f5" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="5">AGENTGUARD</text>
+  <text x="72" y="248" fill="#f0f2f5" font-family="Inter, Arial, sans-serif" font-size="67" font-weight="600" letter-spacing="-3">It knows if your agent</text>
+  <text x="72" y="326" fill="#f0f2f5" font-family="Inter, Arial, sans-serif" font-size="67" font-weight="600" letter-spacing="-3">is still yours.</text>
+  <text x="76" y="388" fill="#929dab" font-family="Inter, Arial, sans-serif" font-size="23">The intelligent firewall for AI agents.</text>
+  <line x1="72" y1="462" x2="1128" y2="462" stroke="#3a4656" />
+  <text x="72" y="512" fill="#75aaff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">POLICY FLOOR</text>
+  <text x="296" y="512" fill="#75aaff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">GPT-5.6 INTENT FIREWALL</text>
+  <text x="676" y="512" fill="#75aaff" font-family="Inter, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="2">HASH-CHAINED LEDGER</text>
+  <rect x="72" y="552" width="1056" height="2" fill="#75aaff" opacity="0.45" />
+</svg>
