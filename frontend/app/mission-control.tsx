@@ -388,7 +388,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
           <span className="brand-mark"><AgentGuardMark className="agentguard-mark" /></span>
           <div><strong>AGENTGUARD</strong><span>MISSION CONTROL FOR AI AGENTS</span></div>
         </div>
-        <div className="header-chips">
+        <div className="header-chips system-status-bar">
           <a className="console-about-link" href="/">← About</a>
           {summary?.demo && <span className="demo-mode-chip">PUBLIC DEMO · RESETS PERIODICALLY</span>}
           <span className="status-chip" key={`agents-${summary?.agents_online ?? "loading"}`}><i className="dot dot-ok" />{summary?.agents_online ?? "—"} AGENTS ONLINE</span>
@@ -624,7 +624,7 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
           <div><span>POLICY REASONS</span><p>{action.reasons.length ? action.reasons.join(" · ") : "No policy exceptions"}</p></div>
           {!hijack && <div><span>MISSION</span><p>{action.mission_text ?? "No active mission"}</p></div>}
           <div><span>INTENT VERDICT</span><p>{verdict ? `${verdict.verdict} · ${displayIntentModel(verdict.model ?? action.intent_model)}` : "unavailable"}</p></div>
-          <div><span>TIME</span><p>{timeAgo(action.created_at)} · {action.created_at} UTC</p></div>
+          <div><span>TIME</span><p className="data-value">{timeAgo(action.created_at)} · {action.created_at} UTC</p></div>
         </div>
         {action.status === "pending_approval" && <div className="inline-actions">
           <button className="approve-button" disabled={busy} onClick={() => void onTransition(action.id, "approve")}>APPROVE</button>

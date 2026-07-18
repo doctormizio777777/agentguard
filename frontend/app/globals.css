@@ -37,6 +37,7 @@
   --dur-reveal:400ms;
   --ease:cubic-bezier(0.2,0,0,1);
   --font-inter:system-ui,sans-serif;
+  --font-data:ui-monospace,"SF Mono","Cascadia Code","Roboto Mono",monospace;
 }
 * { box-sizing: border-box; }
 html { background: var(--bg); }
@@ -428,4 +429,105 @@ button { font: inherit; }
   .risk-fill { transform:none!important; }
   .guided-tour-scrim { opacity:.6!important; }
   .guided-tour-card { opacity:1!important; transform:translateX(-50%)!important; }
+}
+
+/* Phase 10.11: console control-room identity */
+.console-shell { min-height:100vh; isolation:isolate; }
+.console-shell::before {
+  position:fixed;
+  z-index:-1;
+  inset:0;
+  background-image:linear-gradient(color-mix(in srgb,var(--border) 36%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--border) 36%,transparent) 1px,transparent 1px);
+  background-position:center top;
+  background-size:24px 24px;
+  content:"";
+  opacity:.42;
+  pointer-events:none;
+}
+
+.console-shell .panel { position:relative; }
+.console-shell .panel::before,
+.console-shell .panel::after {
+  position:absolute;
+  z-index:2;
+  right:0;
+  left:0;
+  height:10px;
+  background-image:linear-gradient(var(--border-strong),var(--border-strong)),linear-gradient(var(--border-strong),var(--border-strong)),linear-gradient(var(--border-strong),var(--border-strong)),linear-gradient(var(--border-strong),var(--border-strong));
+  background-position:left top,left top,right top,right top;
+  background-repeat:no-repeat;
+  background-size:10px 1px,1px 10px,10px 1px,1px 10px;
+  content:"";
+  pointer-events:none;
+}
+.console-shell .panel::before { top:0; }
+.console-shell .panel::after { bottom:0; transform:rotate(180deg); }
+
+.console-shell .panel-heading>div { min-width:0; flex:1; }
+.console-shell .panel-heading h2 {
+  display:flex;
+  align-items:center;
+  gap:12px;
+  color:var(--text-dim);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.console-shell .panel-heading h2::after { height:1px; background:var(--border); content:""; flex:1; }
+
+.console-shell .kpi-value,
+.console-shell .action-amount,
+.console-shell .action-status,
+.console-shell .action-main small,
+.console-shell .approval-title span,
+.console-shell .approval-item small,
+.console-shell .confidence-stat strong,
+.console-shell .data-value,
+.console-shell .panel-count,
+.console-shell .agent-risk-head b,
+.console-shell .chain-status strong,
+.console-shell .guided-tour-counter,
+.console-shell .model-badge,
+.system-status-bar .status-chip,
+.system-status-bar .live-chip {
+  font-family:var(--font-data);
+  font-variant-numeric:tabular-nums;
+}
+
+.console-shell .kpi-reading strong { font-size:36px; letter-spacing:-.055em; }
+.console-shell .kpi-card>small { padding-top:9px; border-top:1px solid var(--border); }
+.console-shell .kpi-card.tone-danger>span { color:var(--danger); }
+.console-shell .kpi-card.tone-danger.has-danger { border-width:2px; }
+
+.console-shell .action-row:not(.hijack-row) {
+  margin-bottom:0;
+  border:0;
+  border-bottom:1px solid var(--border);
+  border-left-width:2px;
+  border-left-style:solid;
+  background:transparent;
+  box-shadow:none;
+}
+.console-shell .action-row:not(.hijack-row).status-allowed { border-left-color:var(--ok); }
+.console-shell .action-row:not(.hijack-row).status-pending_approval { border-left-color:var(--warn); }
+.console-shell .action-row:not(.hijack-row).status-blocked { border-left-color:var(--danger); }
+.console-shell .approval-item { border-left:2px solid var(--warn); }
+
+.console-shell .system-status-bar { gap:0; }
+.system-status-bar .status-chip,
+.system-status-bar .live-chip {
+  min-height:28px;
+  padding:0 10px;
+  border-left:1px solid var(--border);
+  font-size:9px;
+  letter-spacing:.11em;
+  text-transform:uppercase;
+}
+.system-status-bar .live-chip { border-right:1px solid var(--border); }
+.system-status-bar .console-about-link,
+.system-status-bar .demo-mode-chip { margin-right:10px; }
+
+@media (max-width:620px) {
+  .console-shell .kpi-reading strong { font-size:30px; }
 }
