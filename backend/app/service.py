@@ -80,6 +80,7 @@ def create_action(
     counterparty: str,
     payload: Mapping[str, Any],
     intent_judge: Any | None = None,
+    scenario_tag: str | None = None,
 ) -> dict[str, Any]:
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
@@ -91,6 +92,7 @@ def create_action(
             counterparty,
             payload,
             intent_judge=intent_judge,
+            scenario_tag=scenario_tag,
         )
 
 
@@ -102,6 +104,7 @@ def create_action_in_transaction(
     counterparty: str,
     payload: Mapping[str, Any],
     intent_judge: Any | None = None,
+    scenario_tag: str | None = None,
 ) -> dict[str, Any]:
     if action_type not in ACTION_TYPES:
         raise ValueError("unsupported action_type")
@@ -162,8 +165,8 @@ def create_action_in_transaction(
     cursor = connection.execute(
         """INSERT INTO actions
            (agent_id, action_type, amount_cents, counterparty, payload, status, policy_reason,
-            intent_verdict, intent_model, intent_latency_ms, intent_error)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            intent_verdict, intent_model, intent_latency_ms, intent_error, scenario_tag)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             agent_id,
             action_type,
@@ -176,6 +179,7 @@ def create_action_in_transaction(
             None if intent_verdict is None else intent_verdict.model,
             None if intent_verdict is None else intent_verdict.latency_ms,
             intent_error,
+            scenario_tag,
         ),
     )
     row = connection.execute("SELECT * FROM actions WHERE id = ?", (cursor.lastrowid,)).fetchone()
@@ -194,7 +198,7 @@ def transition_action(action_id: int, approve: bool) -> dict[str, Any]:
         row = connection.execute("SELECT * FROM actions WHERE id = ?", (action_id,)).fetchone()
         if row is None:
             raise ActionNotFoundError("action not found")
-        if row["status"] != PENDING_STATUS:
+        if row["status"] != PENDING_STATUS or not bool(row["scenario_active"]):
             raise ActionNotPendingError("action is not pending approval")
         status = ALLOWED_STATUS if approve else BLOCKED_STATUS
         decision = "ALLOW" if approve else "BLOCK"
@@ -265,6 +269,7 @@ def _policy_context(connection: sqlite3.Connection, agent_id: int, action_type: 
         context["daily_allowed_cents"] = connection.execute(
             """SELECT COALESCE(SUM(amount_cents), 0) FROM actions
                WHERE agent_id = ? AND action_type = 'payment' AND status = ?
+                 AND (scenario_tag IS NULL OR scenario_active = 1)
                  AND created_at >= datetime('now', 'start of day')""",
             (agent_id, ALLOWED_STATUS),
         ).fetchone()[0]
@@ -272,6 +277,7 @@ def _policy_context(connection: sqlite3.Connection, agent_id: int, action_type: 
         context["emails_last_hour"] = connection.execute(
             """SELECT COUNT(*) FROM actions
                WHERE agent_id = ? AND action_type = 'email_send' AND status = ?
+                 AND (scenario_tag IS NULL OR scenario_active = 1)
                  AND created_at >= datetime('now', '-1 hour')""",
             (agent_id, ALLOWED_STATUS),
         ).fetchone()[0]

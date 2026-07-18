@@ -11,15 +11,18 @@ def get_dashboard_summary() -> dict[str, Any]:
     with get_connection() as connection:
         row = connection.execute(
             """
+            WITH visible_actions AS (
+                SELECT * FROM actions WHERE scenario_tag IS NULL OR scenario_active = 1
+            )
             SELECT
-                (SELECT COUNT(*) FROM actions WHERE date(created_at) = date('now')) AS actions_today,
-                (SELECT COALESCE(SUM(amount_cents), 0) FROM actions
+                (SELECT COUNT(*) FROM visible_actions WHERE date(created_at) = date('now')) AS actions_today,
+                (SELECT COALESCE(SUM(amount_cents), 0) FROM visible_actions
                  WHERE date(created_at) = date('now') AND action_type = 'payment' AND status = 'allowed')
                     AS spend_today_cents,
-                (SELECT COUNT(*) FROM actions WHERE status = 'pending_approval') AS pending_count,
-                (SELECT COUNT(*) FROM actions WHERE status = 'blocked') AS blocked_count,
+                (SELECT COUNT(*) FROM visible_actions WHERE status = 'pending_approval') AS pending_count,
+                (SELECT COUNT(*) FROM visible_actions WHERE status = 'blocked') AS blocked_count,
                 (SELECT COUNT(*) FROM agents) AS agents_online,
-                (SELECT COUNT(*) FROM actions
+                (SELECT COUNT(*) FROM visible_actions
                  WHERE status = 'blocked' AND json_extract(intent_verdict, '$.verdict') = 'hijack_suspected')
                     AS threats_blocked,
                 (SELECT COUNT(*) FROM ledger_entries) AS ledger_entries

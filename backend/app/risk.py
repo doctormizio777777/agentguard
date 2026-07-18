@@ -13,7 +13,9 @@ def risk_components(agent_id: int, connection: sqlite3.Connection | None = None)
     connection = connection or get_connection()
     try:
         rows = connection.execute(
-            "SELECT status, intent_verdict FROM actions WHERE agent_id = ? ORDER BY id ASC",
+            """SELECT status, intent_verdict FROM actions
+               WHERE agent_id = ? AND (scenario_tag IS NULL OR scenario_active = 1)
+               ORDER BY id ASC""",
             (agent_id,),
         ).fetchall()
         blocked = pending = allowed = hijack = suspicious = unavailable = 0
@@ -47,6 +49,6 @@ def risk_components(agent_id: int, connection: sqlite3.Connection | None = None)
             connection.close()
 
 
-def compute_risk(agent_id: int) -> int:
+def compute_risk(agent_id: int, connection: sqlite3.Connection | None = None) -> int:
     """Compute 0–100 risk: blocked +25, pending +12, hijack +40, suspicious +20, unavailable +8, allowed −2."""
-    return max(0, min(100, int(risk_components(agent_id)["weighted_score"])))
+    return max(0, min(100, int(risk_components(agent_id, connection)["weighted_score"])))

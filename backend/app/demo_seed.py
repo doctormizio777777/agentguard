@@ -144,7 +144,7 @@ def seed_dashboard(connection: sqlite3.Connection, *, reset: bool = False) -> di
 
 
 def _clear_demo_data(connection: sqlite3.Connection) -> None:
-    for table in ("ledger_entries", "actions", "missions", "agents", "policies"):
+    for table in ("demo_scenario_state", "ledger_entries", "actions", "missions", "agents", "policies"):
         connection.execute(f"DELETE FROM {table}")
     connection.execute(
         "DELETE FROM sqlite_sequence WHERE name IN ('ledger_entries', 'actions', 'missions', 'agents', 'policies')"

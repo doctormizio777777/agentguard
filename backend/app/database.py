@@ -65,6 +65,8 @@ def initialize_database(connection: sqlite3.Connection) -> None:
             intent_model TEXT,
             intent_latency_ms INTEGER,
             intent_error TEXT,
+            scenario_tag TEXT,
+            scenario_active INTEGER NOT NULL DEFAULT 1 CHECK (scenario_active IN (0, 1)),
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (agent_id) REFERENCES agents (id)
         );
@@ -99,6 +101,14 @@ def initialize_database(connection: sqlite3.Connection) -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (agent_id) REFERENCES agents (id)
         );
+
+        CREATE TABLE IF NOT EXISTS demo_scenario_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            agent_id INTEGER NOT NULL,
+            last_step INTEGER NOT NULL CHECK (last_step BETWEEN 0 AND 5),
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (agent_id) REFERENCES agents (id)
+        );
         """
     )
     action_columns = {row[1] for row in connection.execute("PRAGMA table_info(actions)").fetchall()}
@@ -107,6 +117,8 @@ def initialize_database(connection: sqlite3.Connection) -> None:
         ("intent_model", "TEXT"),
         ("intent_latency_ms", "INTEGER"),
         ("intent_error", "TEXT"),
+        ("scenario_tag", "TEXT"),
+        ("scenario_active", "INTEGER NOT NULL DEFAULT 1 CHECK (scenario_active IN (0, 1))"),
     ):
         if column not in action_columns:
             connection.execute(f"ALTER TABLE actions ADD COLUMN {column} {definition}")

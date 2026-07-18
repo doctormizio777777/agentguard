@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from .database import initialize_database, get_connection
 from .dashboard import get_dashboard_summary
 from .demo_seed import reset_demo_database
+from .demo_scenario import ScenarioOrderError, run_demo_scenario_step
 from .ledger import verify_chain
 from .policy import Decision
 from .risk import compute_risk, risk_components
@@ -98,6 +99,10 @@ class ActionResponse(BaseModel):
     intent_latency_ms: int | None = None
     intent_error: str | None = None
     mission_text: str | None = None
+
+
+class ScenarioStepRequest(BaseModel):
+    step: int = Field(ge=0, le=5)
 
 
 @asynccontextmanager
@@ -227,7 +232,7 @@ def list_actions(
     action_type: ActionType | None = None,
     limit: int = Query(default=100, ge=1, le=1000),
 ) -> list[ActionResponse]:
-    clauses: list[str] = []
+    clauses: list[str] = ["(a.scenario_tag IS NULL OR a.scenario_active = 1)"]
     values: list[Any] = []
     if agent_id is not None:
         clauses.append("a.agent_id = ?")
@@ -310,6 +315,14 @@ def demo_reset(
         raise HTTPException(status_code=403, detail="invalid demo reset key")
     result = reset_demo_database()
     return {"status": "reset", **result}
+
+
+@app.post("/demo/scenario/step")
+def demo_scenario_step(request: ScenarioStepRequest) -> dict[str, Any]:
+    try:
+        return run_demo_scenario_step(request.step)
+    except ScenarioOrderError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 def _ledger_response(row: Any) -> dict[str, Any]:
