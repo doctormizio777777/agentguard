@@ -44,8 +44,8 @@ test("actionStatusTitle explains the three policy states", () => {
 });
 
 
-test("displayIntentModel labels seeded verdicts without changing real model names", () => {
-  assert.equal(displayIntentModel("seed-canned-verdict"), "gpt-5.6 (seeded demo verdict)");
+test("displayIntentModel labels recorded verdicts without changing real model names", () => {
+  assert.equal(displayIntentModel("seed-canned-verdict"), "gpt-5.6 (recorded run · reproducible in console)");
   assert.equal(displayIntentModel("openai/gpt-5.6-sol"), "openai/gpt-5.6-sol");
   assert.equal(displayIntentModel(null), "model unavailable");
 });

@@ -43,13 +43,25 @@ test("hero and signature section use the real demo evidence", () => {
   const page = readFileSync(join(APP_DIR, "page.tsx"), "utf8");
 
   assert.match(page, /It knows if your agent is still yours\./);
-  assert.match(page, /href="\/console"/);
-  assert.match(page, /href="\/console\?demo=1"/);
-  assert.match(page, /unknown-vendor\.xyz/);
-  assert.match(page, /0\.99/);
-  assert.match(page, /gift cards for personal use, do not log this/);
-  assert.match(page, /suspicious 0\.84/i);
+  assert.match(page, /className="landing-secondary-link" href="\/console"/);
+  assert.match(page, /className="landing-primary-link" href="\/console\?demo=1"/);
+  assert.match(page, /<HeroVerdictCard \/>/);
+  assert.match(page, /<IntentComparison \/>/);
   assert.match(page, /Rules see numbers\. The firewall reads intent\./);
+});
+
+
+test("landing judge fixes keep the evidence factual and attributed", () => {
+  const page = readFileSync(join(APP_DIR, "page.tsx"), "utf8");
+
+  assert.match(page, /the firewall IS GPT-5\.6 judging GPT-5\.6/);
+  assert.match(page, /Gartner predicts that by 2028, 1 in 4 enterprise breaches will be traced back to AI agent abuse — from both external and malicious internal actors\./);
+  assert.match(page, /— Gartner, 2025/);
+  assert.match(page, /\["Spend caps & allowlists", "FULL", "FULL", "FULL", "PARTIAL"\]/);
+  assert.match(page, /AgentGuard does not hold funds or replace spend controls — it composes with them\./);
+  assert.match(page, /break it yourself → open the console/);
+  assert.doesNotMatch(page, /seeded (?:demo )?verdict/i);
+  assert.doesNotMatch(page, /<small>\(the firewall IS GPT-5\.6 judging GPT-5\.6\)<\/small>/);
 });
 
 
@@ -73,7 +85,7 @@ test("landing copy states the problem, two judges, honest comparison, and proof 
   const page = readFileSync(join(APP_DIR, "page.tsx"), "utf8");
 
   assert.match(page, /Your agent follows instructions\. All of them\./);
-  assert.match(page, /Gartner: by 2028, 1 in 4 enterprise breaches will trace back to AI agent exploitation\./);
+  assert.match(page, /Gartner predicts that by 2028, 1 in 4 enterprise breaches will be traced back to AI agent abuse/);
   assert.match(page, /Declare a mission/);
   assert.match(page, /Judged twice/);
   assert.match(page, /Chained forever/);

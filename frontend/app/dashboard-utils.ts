@@ -22,7 +22,7 @@ export function actionStatusTitle(status: ActionStatus): string {
 }
 
 export function displayIntentModel(model: string | null | undefined): string {
-  if (model === "seed-canned-verdict") return "gpt-5.6 (seeded demo verdict)";
+  if (model === "seed-canned-verdict") return "gpt-5.6 (recorded run · reproducible in console)";
   return model || "model unavailable";
 }
 

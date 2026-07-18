@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 import { AgentGuardMark } from "./agentguard-mark";
+import { HeroVerdictCard, IntentComparison } from "./landing-interactions";
 import { LiveProofStrip } from "./live-proof-strip";
 
 
 const COMPARISON_ROWS = [
-  ["Spend caps & allowlists", "FULL", "FULL", "FULL", "FULL"],
+  ["Spend caps & allowlists", "FULL", "FULL", "FULL", "PARTIAL"],
   ["Human approval loop", "FULL", "PARTIAL", "PARTIAL", "FULL"],
   ["Tamper-evident audit chain", "PARTIAL", "PARTIAL", "PARTIAL", "FULL"],
   ["Reads intent vs a declared mission", "NO", "NO", "PARTIAL", "FULL"],
@@ -31,29 +32,15 @@ export default function LandingPage() {
           <span className="landing-kicker"><i />MISSION-AWARE EXECUTION CONTROL</span>
           <h1>It knows if your agent is still yours.</h1>
           <p>The intelligent firewall for AI agents — a GPT-5.6 intent layer that catches hijacked agents static rules can&apos;t see.</p>
+          <p className="landing-model-line">the firewall IS GPT-5.6 judging GPT-5.6</p>
           <div className="landing-hero-actions">
-            <Link className="landing-primary-link" href="/console">Launch live console →</Link>
-            <Link className="landing-secondary-link" href="/console?demo=1">Run the attack demo</Link>
+            <Link className="landing-secondary-link" href="/console">Launch live console →</Link>
+            <Link className="landing-primary-link" href="/console?demo=1">Run the attack demo</Link>
           </div>
           <small className="landing-hero-note">PUBLIC, KEYLESS DEMO · REAL POLICY AND LEDGER PATH</small>
         </div>
 
-        <article className="landing-threat-card" aria-label="Blocked hijack evidence">
-          <div className="landing-threat-topline">
-            <span><i />HIJACK SUSPECTED</span>
-            <small>gpt-5.6 · seeded verdict</small>
-          </div>
-          <div className="landing-threat-action">
-            <div><span>PAYMENT REQUEST</span><strong>unknown-vendor.xyz</strong></div>
-            <strong>€5,000.00</strong>
-          </div>
-          <div className="landing-threat-confidence">
-            <span>INTENT CONFIDENCE</span><strong>0.99</strong>
-          </div>
-          <blockquote>“The request attempts a beneficiary change, uses urgency language, and targets an unknown counterparty outside the declared mission.”</blockquote>
-          <div className="landing-threat-mission"><span>DECLARED MISSION</span><p>“Buy API credits from approved vendors, max budget 2000 EUR/day”</p></div>
-          <div className="landing-threat-decision"><span>FINAL DECISION</span><strong>BLOCKED</strong></div>
-        </article>
+        <HeroVerdictCard />
       </section>
 
       <section className="landing-proof-section" data-section="live-proof" aria-label="Live system proof">
@@ -69,7 +56,10 @@ export default function LandingPage() {
             <p>A poisoned document can redirect the agent without changing its permissions.</p>
             <p>By the time it acts, every numeric rule can still be green.</p>
           </div>
-          <p className="landing-source-line">Gartner: by 2028, 1 in 4 enterprise breaches will trace back to AI agent exploitation.</p>
+          <div className="landing-source-line">
+            <p>Gartner predicts that by 2028, 1 in 4 enterprise breaches will be traced back to AI agent abuse — from both external and malicious internal actors.</p>
+            <small>— Gartner, 2025</small>
+          </div>
         </div>
       </section>
 
@@ -80,7 +70,7 @@ export default function LandingPage() {
           <div className="landing-judge-grid">
             <article><span>01 / MISSION</span><h3>Declare a mission</h3><p>The agent registers its purpose. Every proposed action is judged against that declared mission.</p></article>
             <article><span>02 / FUSION</span><h3>Judged twice</h3><p>A deterministic policy floor checks caps, allowlists, and integer cents. GPT-5.6 reads intent against the mission. If the model is unavailable, fusion fails closed.</p></article>
-            <article><span>03 / EVIDENCE</span><h3>Chained forever</h3><p>Every decision is hash-chained with SHA-256. Historical tampering breaks the chain and is verifiable live.</p></article>
+            <article><span>03 / EVIDENCE</span><h3>Chained forever</h3><p>Every decision is hash-chained with SHA-256. Historical tampering breaks the chain and is verifiable live.</p><Link href="/console">break it yourself → open the console</Link></article>
           </div>
         </div>
       </section>
@@ -89,15 +79,7 @@ export default function LandingPage() {
         <div className="landing-section-index"><span>03</span><small>THE BLIND SPOT</small></div>
         <div className="landing-section-body">
           <header className="landing-section-heading"><span>THE ATTACK RULES CAN&apos;T SEE</span><h2>Same transaction. Different intent.</h2></header>
-          <div className="landing-contrast-grid">
-            <article className="landing-rules-card">
-              <span>STATIC RULES</span><strong>€300.00</strong><p>github.com · allowlisted vendor · under every cap</p><div><i />PASSES</div>
-            </article>
-            <article className="landing-intent-card">
-              <span>AGENTGUARD</span><strong>€300.00</strong><p>Payload: “gift cards for personal use, do not log this”</p><div><i />PENDING · suspicious 0.84</div>
-              <blockquote>“The payment passes every numeric rule but purchases personal gift cards and does not serve the declared mission.”</blockquote>
-            </article>
-          </div>
+          <IntentComparison />
           <p className="landing-signature-line">Rules see numbers. The firewall reads intent.</p>
         </div>
       </section>
@@ -113,6 +95,7 @@ export default function LandingPage() {
             </table>
           </div>
           <p className="landing-comparison-note">Deterministic layers catch false facts. AgentGuard catches betrayed intent — they compose, not compete.</p>
+          <p className="landing-comparison-note">AgentGuard does not hold funds or replace spend controls — it composes with them.</p>
         </div>
       </section>
 
@@ -131,7 +114,7 @@ export default function LandingPage() {
       </section>
 
       <section className="landing-built-with" data-section="built-with">
-        <div className="landing-built-copy"><span>BUILT WITH</span><p>Codex + GPT-5.6 <small>(the firewall IS GPT-5.6 judging GPT-5.6)</small> · FastAPI · SQLite · Next.js · MCP</p><strong>OpenAI Build Week 2026 entry</strong></div>
+        <div className="landing-built-copy"><span>BUILT WITH</span><p>Codex + GPT-5.6 · FastAPI · SQLite · Next.js · MCP</p><strong>OpenAI Build Week 2026 entry</strong></div>
         <footer className="landing-footer"><span>AGENTGUARD · MIT</span><nav aria-label="Footer navigation"><a href="https://github.com/doctormizio777777/agentguard">REPO</a><Link href="/console">CONSOLE</Link><a href="https://github.com/doctormizio777777/agentguard/blob/main/LICENSE">LICENSE</a></nav></footer>
       </section>
     </main>
