@@ -7,7 +7,7 @@ Deploy the backend first, deploy the frontend second, then replace the temporary
 1. In Render, choose **New > Web Service** and connect `doctormizio777777/agentguard`.
 2. Set **Language** to `Docker`.
 3. Set **Root Directory** to `backend`.
-4. Set **Dockerfile Path** to `backend/Dockerfile` and **Docker Build Context** to `backend`. These paths are relative to the repository root.
+4. Set **Dockerfile Path** to `./Dockerfile` and **Docker Build Context** to `.`. Because **Root Directory** is `backend`, these values are relative to that directory; the Blueprint equivalent is `dockerContext: .`.
 5. Use port `8000`. The Docker entrypoint starts Uvicorn on `0.0.0.0:8000`; no custom Docker command is required.
 6. Set the health check path to `/health`.
 7. Add these environment variables:

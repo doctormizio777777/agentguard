@@ -14,8 +14,8 @@ def test_render_blueprint_defines_backend_docker_service_and_demo_environment() 
         "runtime: docker",
         "plan: free",
         "rootDir: backend",
-        "dockerfilePath: ./backend/Dockerfile",
-        "dockerContext: ./backend",
+        "dockerfilePath: ./Dockerfile",
+        "dockerContext: .",
         "healthCheckPath: /health",
         "key: ALLOWED_ORIGINS",
         "key: DEMO_MODE",
@@ -31,6 +31,7 @@ def test_render_blueprint_defines_backend_docker_service_and_demo_environment() 
         assert expected in blueprint
 
     assert "plan: starter" not in blueprint
+    assert "dockerfilePath: ./backend/Dockerfile" not in blueprint
 
 
 def test_keepalive_workflow_uses_repository_url_and_strict_health_check() -> None:
@@ -72,6 +73,8 @@ def test_deploy_guide_covers_required_order_settings_and_verification() -> None:
         "## 1. Deploy the backend on Render",
         "Root Directory",
         "`backend`",
+        "`./Dockerfile`",
+        "`dockerContext: .`",
         "`ALLOWED_ORIGINS`",
         "`DEMO_MODE`",
         "`DEMO_RESET_KEY`",
