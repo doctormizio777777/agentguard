@@ -125,6 +125,7 @@ export default function LandingPage() {
             <a href="https://github.com/doctormizio777777/agentguard/blob/main/docs/VERIFICATION.md" target="_blank" rel="noreferrer"><span>PROOF</span><strong>VERIFICATION.md</strong><small>Every claim → proof → real output</small></a>
             <a href="https://github.com/doctormizio777777/agentguard/blob/main/docs/reviews/2026-07-18-final-security-audit.md" target="_blank" rel="noreferrer"><span>SECURITY</span><strong>Final security audit</strong><small>Exposure and accepted risks →</small></a>
           </div>
+          <p className="landing-tamper-line">You can even tamper with the ledger yourself — the chain will catch you. <Link href="/console">→ open the console</Link></p>
           <div className="landing-local-run"><div><span>LOCAL / 60 SECONDS</span><strong>No API key required</strong></div><pre><code>git clone https://github.com/doctormizio777777/agentguard.git{`\n`}cd agentguard{`\n`}docker compose up --build</code></pre></div>
         </div>
       </section>

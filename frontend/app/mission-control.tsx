@@ -44,6 +44,20 @@ type Summary = {
   ledger: { entries: number; valid: boolean };
   demo?: boolean;
 };
+type LedgerVerification = {
+  valid: boolean;
+  entries_checked: number;
+  first_broken_seq: number | null;
+  reason: string | null;
+};
+type TamperResponse = {
+  tampered_seq?: number;
+  restored_seq?: number | null;
+  already_tampered?: boolean;
+  already_restored?: boolean;
+  verification: LedgerVerification;
+  detail?: string;
+};
 
 function formatMoney(value: number | string | null): string {
   if (value === null) return "—";
@@ -117,6 +131,9 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const [scenarioBusyStep, setScenarioBusyStep] = useState<number | null>(null);
   const [scenarioError, setScenarioError] = useState<string | null>(null);
   const [guidedHighlightId, setGuidedHighlightId] = useState<number | null>(null);
+  const [tamperVerification, setTamperVerification] = useState<LedgerVerification | null>(null);
+  const [tamperBusy, setTamperBusy] = useState<"tamper" | "restore" | null>(null);
+  const [tamperError, setTamperError] = useState<string | null>(null);
   const [, setClockTick] = useState(0);
   const knownActionIds = useRef<Set<number> | null>(null);
   const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -128,12 +145,14 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
         fetch(`${API_BASE_URL}/dashboard/summary`),
         fetch(`${API_BASE_URL}/actions?limit=50`),
         fetch(`${API_BASE_URL}/agents`),
+        fetch(`${API_BASE_URL}/ledger/verify`),
       ]);
       if (responses.some((response) => !response.ok)) throw new Error("Backend data request failed");
-      const [nextSummary, nextActions, nextAgents] = await Promise.all([
+      const [nextSummary, nextActions, nextAgents, nextVerification] = await Promise.all([
         responses[0].json() as Promise<Summary>,
         responses[1].json() as Promise<Action[]>,
         responses[2].json() as Promise<Agent[]>,
+        responses[3].json() as Promise<LedgerVerification>,
       ]);
 
       if (knownActionIds.current !== null) {
@@ -150,6 +169,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
       setSummary(nextSummary);
       setActions(nextActions);
       setAgents(nextAgents);
+      setTamperVerification(nextVerification.valid ? null : nextVerification);
       setExpanded((current) => {
         const next = new Set(current);
         nextActions.forEach((action) => {
@@ -253,6 +273,38 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
     }
   };
 
+  const runTamperTest = async () => {
+    setTamperBusy("tamper");
+    setTamperError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/demo/tamper`, { method: "POST" });
+      const result = await response.json() as TamperResponse;
+      if (!response.ok) throw new Error(result.detail ?? `Tamper test failed with HTTP ${response.status}`);
+      setTamperVerification(result.verification);
+      await refresh();
+    } catch (reason) {
+      setTamperError(reason instanceof Error ? reason.message : "Tamper test failed");
+    } finally {
+      setTamperBusy(null);
+    }
+  };
+
+  const restoreTamperTest = async () => {
+    setTamperBusy("restore");
+    setTamperError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/demo/tamper/restore`, { method: "POST" });
+      const result = await response.json() as TamperResponse;
+      if (!response.ok) throw new Error(result.detail ?? `Ledger restore failed with HTTP ${response.status}`);
+      setTamperVerification(result.verification.valid ? null : result.verification);
+      await refresh();
+    } catch (reason) {
+      setTamperError(reason instanceof Error ? reason.message : "Ledger restore failed");
+    } finally {
+      setTamperBusy(null);
+    }
+  };
+
   const pendingActions = useMemo(() => actions.filter((action) => action.status === "pending_approval"), [actions]);
   const series = useMemo(() => ({
     actions: buildHourlySeries(actions, "actions"),
@@ -261,6 +313,10 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
     blocked: buildHourlySeries(actions, "blocked"),
   }), [actions]);
   const refreshAge = lastRefresh ? Math.max(0, Math.floor((Date.now() - lastRefresh.getTime()) / 1000)) : null;
+  const chainBroken = summary?.ledger.valid === false || tamperVerification?.valid === false;
+  const chainMessage = chainBroken
+    ? `CHAIN BROKEN — first_broken_seq: ${tamperVerification?.first_broken_seq ?? "unknown"} — this is what tampering looks like`
+    : summary ? "CHAIN VERIFIED" : "CHECKING CHAIN";
 
   return (
     <main className="console-shell">
@@ -362,13 +418,19 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
             {agents.map((agent) => <AgentRisk key={agent.id} agent={agent} />)}
           </section>
 
-          <section className="panel audit-panel">
+          <section className={`panel audit-panel ${chainBroken ? "audit-panel-danger" : ""}`}>
             <PanelHeading eyebrow="INTEGRITY MONITOR" title="Audit Chain" count={summary ? `${summary.ledger.entries} ENTRIES` : "—"} />
             <div className="chain-status">
-              <span className={`chain-icon ${summary?.ledger.valid ? "valid" : "invalid"}`}>{summary?.ledger.valid ? "OK" : "!"}</span>
-              <div><strong>{summary ? (summary.ledger.valid ? "CHAIN VERIFIED" : "CHAIN BROKEN") : "CHECKING CHAIN"}</strong><p>SHA-256 hash-linked event history</p></div>
+              <span className={`chain-icon ${chainBroken ? "invalid" : "valid"}`}>{chainBroken ? "!" : "OK"}</span>
+              <div><strong>{chainMessage}</strong><p>SHA-256 hash-linked event history</p></div>
             </div>
-            <button className="verify-button" onClick={() => void refresh()}>VERIFY NOW <span>↗</span></button>
+            <div className="audit-actions">
+              <button className="verify-button" onClick={() => void refresh()}>VERIFY NOW <span>↗</span></button>
+              {summary?.demo && !chainBroken && <button className="tamper-button" disabled={tamperBusy !== null} onClick={() => void runTamperTest()}>TAMPER TEST</button>}
+              {summary?.demo && chainBroken && <button className="restore-button" disabled={tamperBusy !== null} onClick={() => void restoreTamperTest()}>RESTORE</button>}
+            </div>
+            {summary?.demo && <p className="tamper-caption">Corrupts a real entry in the demo DB via SQL. The chain catches it. Try it.</p>}
+            {tamperError && <p className="tamper-error" role="alert">{tamperError}</p>}
           </section>
         </aside>
       </div>

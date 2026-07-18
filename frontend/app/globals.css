@@ -337,6 +337,26 @@ button { font: inherit; }
 .guided-verify-result b { margin:0; }
 .guided-focus { animation:guided-focus-pulse 2.6s var(--ease-out) both!important; }
 
+.landing-tamper-line { margin:18px 0 10px; color:var(--text-dim); font-size:12px; line-height:1.6; }
+.landing-tamper-line a { color:var(--accent); font-weight:700; text-decoration:none; }
+.landing-tamper-line a:hover { text-decoration:underline; }
+.audit-panel { transition:border-color var(--motion-normal) ease,box-shadow var(--motion-normal) ease; }
+.audit-panel-danger { border-color:var(--danger); background:var(--danger-bg); box-shadow:var(--shadow-danger); }
+.chain-status { align-items:flex-start; }
+.chain-icon { flex:0 0 auto; }
+.chain-status strong { line-height:1.5; }
+.audit-panel-danger .chain-status strong { color:var(--danger); }
+.audit-actions { display:flex; flex-wrap:wrap; gap:7px; margin:0 16px; }
+.audit-actions .verify-button { margin:0; }
+.tamper-button,.restore-button { padding:8px 11px; border:1px solid; background:transparent; font-size:10px; letter-spacing:.08em; cursor:pointer; }
+.tamper-button { border-color:var(--danger); color:var(--danger); }
+.restore-button { border-color:var(--ok); color:var(--ok); }
+.tamper-button:disabled,.restore-button:disabled { opacity:.45; cursor:wait; }
+.tamper-button:focus-visible,.restore-button:focus-visible,.landing-tamper-line a:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.tamper-caption,.tamper-error { margin:9px 16px 0; font-size:10px; line-height:1.45; }
+.tamper-caption { color:var(--text-dim); }
+.tamper-error { color:var(--danger); }
+
 @keyframes live-pulse { 0% { box-shadow:0 0 0 0 var(--ok); } 65%,100% { box-shadow:0 0 0 6px transparent; } }
 @keyframes threat-pulse { 0% { box-shadow:0 0 0 0 var(--danger); } 65%,100% { box-shadow:0 0 0 8px transparent; } }
 @keyframes feed-enter { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:translateY(0); } }
