@@ -12,6 +12,7 @@ def test_render_blueprint_defines_backend_docker_service_and_demo_environment() 
     for expected in (
         "type: web",
         "runtime: docker",
+        "plan: free",
         "rootDir: backend",
         "dockerfilePath: ./backend/Dockerfile",
         "dockerContext: ./backend",
@@ -28,6 +29,26 @@ def test_render_blueprint_defines_backend_docker_service_and_demo_environment() 
         "value: openai/gpt-5.6-sol",
     ):
         assert expected in blueprint
+
+    assert "plan: starter" not in blueprint
+
+
+def test_keepalive_workflow_uses_repository_url_and_strict_health_check() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "keepalive.yml").read_text(encoding="utf-8")
+
+    for expected in (
+        'cron: "*/10 * * * *"',
+        "workflow_dispatch:",
+        "vars.RENDER_URL",
+        "--max-time 30",
+        '"%{http_code}"',
+        '"${RENDER_URL%/}/health"',
+        'if [[ "$http_code" != "200" ]]',
+        "exit 1",
+    ):
+        assert expected in workflow
+
+    assert "onrender.com" not in workflow
 
 
 def test_backend_image_builds_from_backend_directory_without_parent_files() -> None:
@@ -64,6 +85,10 @@ def test_deploy_guide_covers_required_order_settings_and_verification() -> None:
         '"agents_online": 3',
         '"valid": true',
         "POST /demo/reset",
+        "free tier sleeps after 15 minutes",
+        "Settings > Secrets and variables > Actions > Variables",
+        "`RENDER_URL`",
+        "workflow_dispatch",
     ):
         assert expected in deploy
 

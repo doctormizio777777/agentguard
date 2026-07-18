@@ -1,0 +1,36 @@
+name: Keep Render backend awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Render health
+        env:
+          RENDER_URL: ${{ vars.RENDER_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${RENDER_URL:-}" ]]; then
+            echo "::error::RENDER_URL repository variable is not set"
+            exit 1
+          fi
+
+          response_file="$(mktemp)"
+          http_code="$(curl --silent --show-error --max-time 30 \
+            --output "$response_file" \
+            --write-out "%{http_code}" \
+            "${RENDER_URL%/}/health")"
+          cat "$response_file"
+
+          if [[ "$http_code" != "200" ]]; then
+            echo "::error::AgentGuard health check returned HTTP $http_code"
+            exit 1
+          fi
+
+          echo "PASS: AgentGuard health returned HTTP 200"

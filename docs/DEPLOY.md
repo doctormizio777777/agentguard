@@ -31,6 +31,21 @@ For the optional real GPT-5.6 video demo, add `OPENAI_API_KEY` as a Render secre
 
 The checked-in [`render.yaml`](../render.yaml) encodes the same service. Render's current Blueprint keys are documented in the [Blueprint YAML reference](https://render.com/docs/blueprint-spec).
 
+### Free-tier keepalive
+
+Render's free tier sleeps after 15 minutes without inbound traffic. The scheduled [keepalive workflow](../.github/workflows/keepalive.yml) mitigates that delay by calling `/health` every 10 minutes with a 30-second timeout. It also supports `workflow_dispatch` for an immediate manual check.
+
+After Render assigns the backend URL, configure the repository variable in GitHub:
+
+1. Open `doctormizio777777/agentguard` on GitHub.
+2. Go to **Settings > Secrets and variables > Actions > Variables**.
+3. Click **New repository variable**.
+4. Set the name to `RENDER_URL`.
+5. Set the value to the full Render service origin, for example `https://agentguard-api.onrender.com`, with no trailing slash.
+6. Click **Add variable**.
+
+To test it immediately, open **Actions > Keep Render backend awake**, click **Run workflow**, choose `main`, and click **Run workflow** again. A successful run prints the `/health` response and `PASS: AgentGuard health returned HTTP 200`.
+
 ## 2. Deploy the frontend on Vercel
 
 1. In Vercel, choose **Add New > Project** and import `doctormizio777777/agentguard`.
