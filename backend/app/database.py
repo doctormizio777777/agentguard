@@ -109,6 +109,13 @@ def initialize_database(connection: sqlite3.Connection) -> None:
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (agent_id) REFERENCES agents (id)
         );
+
+        CREATE TABLE IF NOT EXISTS demo_tamper_state (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            tampered_seq INTEGER NOT NULL,
+            original_snapshot TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         """
     )
     action_columns = {row[1] for row in connection.execute("PRAGMA table_info(actions)").fetchall()}

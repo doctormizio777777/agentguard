@@ -16,6 +16,7 @@ from .database import initialize_database, get_connection
 from .dashboard import get_dashboard_summary
 from .demo_seed import reset_demo_database
 from .demo_scenario import ScenarioOrderError, run_demo_scenario_step
+from .demo_tamper import DemoTamperUnavailableError, restore_demo_ledger, tamper_demo_ledger
 from .ledger import verify_chain
 from .policy import Decision
 from .risk import compute_risk, risk_components
@@ -323,6 +324,26 @@ def demo_scenario_step(request: ScenarioStepRequest) -> dict[str, Any]:
         return run_demo_scenario_step(request.step)
     except ScenarioOrderError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/demo/tamper")
+def demo_tamper() -> dict[str, Any]:
+    _require_demo_mode()
+    try:
+        return tamper_demo_ledger()
+    except DemoTamperUnavailableError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/demo/tamper/restore")
+def demo_tamper_restore() -> dict[str, Any]:
+    _require_demo_mode()
+    return restore_demo_ledger()
+
+
+def _require_demo_mode() -> None:
+    if not demo_mode_enabled():
+        raise HTTPException(status_code=404, detail="Not Found")
 
 
 def _ledger_response(row: Any) -> dict[str, Any]:
