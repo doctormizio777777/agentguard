@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildHourlySeries, sparklinePoints } from "../app/dashboard-utils.ts";
+import {
+  actionStatusTitle,
+  buildHourlySeries,
+  displayIntentModel,
+  sparklinePoints,
+} from "../app/dashboard-utils.ts";
 
 
 const NOW = Date.UTC(2026, 6, 17, 12, 30);
@@ -29,5 +34,19 @@ test("buildHourlySeries aggregates the matching KPI metric", () => {
 test("sparklinePoints creates deterministic padded SVG coordinates", () => {
   assert.equal(sparklinePoints([0, 5, 10], 100, 20, 2), "2.00,18.00 50.00,10.00 98.00,2.00");
   assert.equal(sparklinePoints([4, 4], 100, 20, 2), "2.00,10.00 98.00,10.00");
+});
+
+
+test("actionStatusTitle explains the three policy states", () => {
+  assert.equal(actionStatusTitle("allowed"), "passed policy floor and intent firewall");
+  assert.equal(actionStatusTitle("pending_approval"), "waiting for human approval");
+  assert.equal(actionStatusTitle("blocked"), "stopped by policy floor or intent firewall");
+});
+
+
+test("displayIntentModel labels seeded verdicts without changing real model names", () => {
+  assert.equal(displayIntentModel("seed-canned-verdict"), "gpt-5.6 (seeded demo verdict)");
+  assert.equal(displayIntentModel("openai/gpt-5.6-sol"), "openai/gpt-5.6-sol");
+  assert.equal(displayIntentModel(null), "model unavailable");
 });
 

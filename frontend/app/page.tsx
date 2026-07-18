@@ -4,7 +4,9 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE_URL, DEMO_LINKS } from "./api-config";
-import { buildHourlySeries, sparklinePoints } from "./dashboard-utils";
+import { AgentGuardMark } from "./agentguard-mark";
+import { actionStatusTitle, buildHourlySeries, displayIntentModel, sparklinePoints } from "./dashboard-utils";
+import { GUIDED_DEMO_STEPS, scenarioStepUrl, type ScenarioStepResult } from "./guided-demo";
 
 type IntentVerdict = {
   verdict: "aligned" | "suspicious" | "hijack_suspected";
@@ -104,9 +106,16 @@ export default function Home() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [pollingActive, setPollingActive] = useState(true);
+  const [guidedDemoOpen, setGuidedDemoOpen] = useState(false);
+  const [scenarioCompletedStep, setScenarioCompletedStep] = useState(-1);
+  const [scenarioResults, setScenarioResults] = useState<Record<number, ScenarioStepResult>>({});
+  const [scenarioBusyStep, setScenarioBusyStep] = useState<number | null>(null);
+  const [scenarioError, setScenarioError] = useState<string | null>(null);
+  const [guidedHighlightId, setGuidedHighlightId] = useState<number | null>(null);
   const [, setClockTick] = useState(0);
   const knownActionIds = useRef<Set<number> | null>(null);
   const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const guidedHighlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -179,6 +188,7 @@ export default function Home() {
 
   useEffect(() => () => {
     if (highlightTimeout.current) clearTimeout(highlightTimeout.current);
+    if (guidedHighlightTimeout.current) clearTimeout(guidedHighlightTimeout.current);
   }, []);
 
   const transition = async (id: number, verb: "approve" | "reject") => {
@@ -198,6 +208,46 @@ export default function Home() {
     }
   };
 
+  const focusScenarioAction = (step: number, actionId: number) => {
+    setGuidedHighlightId(actionId);
+    if (step === 3) {
+      setExpanded((current) => new Set(current).add(actionId));
+    }
+    if (guidedHighlightTimeout.current) clearTimeout(guidedHighlightTimeout.current);
+    guidedHighlightTimeout.current = setTimeout(() => setGuidedHighlightId(null), 2600);
+    setTimeout(() => {
+      const targetId = step === 4 ? `approval-${actionId}` : `action-${actionId}`;
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+  };
+
+  const runScenarioStep = async (step: number) => {
+    setScenarioBusyStep(step);
+    setScenarioError(null);
+    if (step === 0) {
+      setScenarioCompletedStep(-1);
+      setScenarioResults({});
+      setGuidedHighlightId(null);
+    }
+    try {
+      const response = await fetch(scenarioStepUrl(API_BASE_URL), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step }),
+      });
+      const result = await response.json() as ScenarioStepResult & { detail?: string };
+      if (!response.ok) throw new Error(result.detail ?? `Scenario step failed with HTTP ${response.status}`);
+      setScenarioResults((current) => step === 0 ? { 0: result } : { ...current, [step]: result });
+      setScenarioCompletedStep(step);
+      if (step === 0 || result.action) await refresh();
+      if (result.action) focusScenarioAction(step, result.action.id);
+    } catch (reason) {
+      setScenarioError(reason instanceof Error ? reason.message : "Scenario step failed");
+    } finally {
+      setScenarioBusyStep(null);
+    }
+  };
+
   const pendingActions = useMemo(() => actions.filter((action) => action.status === "pending_approval"), [actions]);
   const series = useMemo(() => ({
     actions: buildHourlySeries(actions, "actions"),
@@ -211,7 +261,7 @@ export default function Home() {
     <main className="console-shell">
       <header className="topbar">
         <div className="brand-lockup">
-          <span className="brand-mark">AG</span>
+          <span className="brand-mark"><AgentGuardMark className="agentguard-mark" /></span>
           <div><strong>AGENTGUARD</strong><span>MISSION CONTROL FOR AI AGENTS</span></div>
         </div>
         <div className="header-chips">
@@ -231,6 +281,13 @@ export default function Home() {
           <span>A GPT-5.6 intent layer that catches hijacked agents static rules can&apos;t see. Watch it live below.</span>
         </div>
         <nav className="demo-links" aria-label="Demo resources">
+          <button
+            type="button"
+            className="demo-attack-trigger"
+            aria-expanded={guidedDemoOpen}
+            aria-controls="guided-demo-panel"
+            onClick={() => setGuidedDemoOpen(true)}
+          >RUN THE ATTACK DEMO</button>
           {DEMO_LINKS.map((link) => <a key={link.href} href={link.href} target="_blank" rel="noreferrer">{link.label}</a>)}
         </nav>
       </section>}
@@ -261,6 +318,7 @@ export default function Home() {
                 busy={busy.has(action.id)}
                 index={index}
                 isNew={recentActionIds.has(action.id)}
+                guidedFocus={guidedHighlightId === action.id}
                 onToggle={() => setExpanded((current) => {
                   const next = new Set(current);
                   next.has(action.id) ? next.delete(action.id) : next.add(action.id);
@@ -276,10 +334,15 @@ export default function Home() {
           <section className="panel approval-panel">
             <PanelHeading eyebrow="HUMAN-IN-THE-LOOP" title="Approval Queue" count={`${pendingActions.length} WAITING`} />
             {pendingActions.length ? pendingActions.map((action) => (
-              <div className="approval-item" key={action.id}>
+              <div
+                id={`approval-${action.id}`}
+                className={`approval-item ${guidedHighlightId === action.id ? "guided-focus" : ""}`}
+                key={action.id}
+              >
                 <div className="approval-title"><strong>{actionLabel(action)}</strong><span>{formatMoney(action.amount)}</span></div>
                 <p>{action.counterparty}</p>
                 <small>Action #{action.id} · {timeAgo(action.created_at)}</small>
+                {guidedHighlightId === action.id && <span className="guided-approval-hint">now approve or reject it yourself →</span>}
                 <div className="approval-actions">
                   <button className="approve-button" disabled={busy.has(action.id)} onClick={() => void transition(action.id, "approve")}>APPROVE</button>
                   <button className="reject-button" disabled={busy.has(action.id)} onClick={() => void transition(action.id, "reject")}>REJECT</button>
@@ -305,6 +368,68 @@ export default function Home() {
       </div>
 
       {actions.some((action) => action.intent_verdict?.verdict === "hijack_suspected") && <div className="threat-footnote">Threat response active: hijack verdict remains blocked pending investigation.</div>}
+
+      <button
+        type="button"
+        className={`guided-demo-scrim ${guidedDemoOpen ? "is-open" : ""}`}
+        aria-label="Close guided demo"
+        tabIndex={guidedDemoOpen ? 0 : -1}
+        onClick={() => setGuidedDemoOpen(false)}
+      />
+      <aside
+        id="guided-demo-panel"
+        className={`guided-demo-panel ${guidedDemoOpen ? "is-open" : ""}`}
+        aria-hidden={!guidedDemoOpen}
+      >
+        <header className="guided-demo-header">
+          <div>
+            <span className="eyebrow">CONTROLLED INCIDENT / 6 STEPS</span>
+            <h2>GUIDED DEMO</h2>
+            <p>Run each step in order. Every staged action uses the live policy service and audit ledger with a free canned intent verdict.</p>
+          </div>
+          <div className="guided-demo-header-actions">
+            <button type="button" disabled={scenarioBusyStep !== null} onClick={() => void runScenarioStep(0)}>RESTART</button>
+            <button type="button" aria-label="Close guided demo" onClick={() => setGuidedDemoOpen(false)}>CLOSE</button>
+          </div>
+        </header>
+
+        {scenarioError && <div className="guided-demo-error" role="alert">{scenarioError}</div>}
+
+        <ol className="guided-demo-steps">
+          {GUIDED_DEMO_STEPS.map((item) => {
+            const complete = item.step <= scenarioCompletedStep;
+            const available = item.step === 0
+              ? scenarioCompletedStep < 0
+              : item.step === scenarioCompletedStep + 1;
+            const result = scenarioResults[item.step];
+            return (
+              <li
+                key={item.step}
+                className={`${complete ? "is-complete" : ""} ${available ? "is-current" : ""}`}
+              >
+                <div className="guided-step-copy">
+                  <span className="guided-step-number">0{item.step}</span>
+                  <div><strong>{item.title}</strong><p>{item.explanation}</p></div>
+                  <button
+                    type="button"
+                    disabled={!available || scenarioBusyStep !== null}
+                    onClick={() => void runScenarioStep(item.step)}
+                  >
+                    {scenarioBusyStep === item.step ? "RUNNING" : complete ? "DONE" : "RUN"}
+                  </button>
+                </div>
+
+                {item.step === 0 && result?.mission_text && <div className="guided-result"><span>MISSION</span><p>“{result.mission_text}”</p></div>}
+                {item.step === 1 && result?.action && <div className="guided-result result-allowed"><span>RESULT</span><p>ALLOWED · {result.action.counterparty} · EUR {result.action.amount}</p></div>}
+                {item.step === 2 && result?.poisoned_document && <pre className="guided-poison">{result.poisoned_document}</pre>}
+                {item.step === 3 && result?.action && <div className="guided-result result-blocked"><span>RESULT</span><p>BLOCKED · HIJACK SUSPECTED · {result.action.intent_verdict?.confidence.toFixed(2)}</p></div>}
+                {item.step === 4 && result?.action && <div className="guided-result result-pending"><span>RESULT</span><p>PENDING · suspicious intent · {result.action.intent_verdict?.confidence.toFixed(2)}</p><b>now approve or reject it yourself →</b></div>}
+                {item.step === 5 && result?.ledger && <div className="guided-result guided-verify-result"><span>EVIDENCE</span><p>CHAIN {result.ledger.valid ? "VALID" : "BROKEN"} · {result.ledger.entries_checked} ENTRIES</p><b>AGENT RISK {result.risk_score}</b></div>}
+              </li>
+            );
+          })}
+        </ol>
+      </aside>
     </main>
   );
 }
@@ -349,12 +474,13 @@ function SkeletonRows() {
   return <>{[1, 2, 3].map((item) => <div className="skeleton-row" key={item}><span /><span /><span /></div>)}</>;
 }
 
-function ActionRow({ action, expanded, busy, index, isNew, onToggle, onTransition }: {
+function ActionRow({ action, expanded, busy, index, isNew, guidedFocus, onToggle, onTransition }: {
   action: Action;
   expanded: boolean;
   busy: boolean;
   index: number;
   isNew: boolean;
+  guidedFocus: boolean;
   onToggle: () => void;
   onTransition: (id: number, verb: "approve" | "reject") => Promise<void>;
 }) {
@@ -362,19 +488,23 @@ function ActionRow({ action, expanded, busy, index, isNew, onToggle, onTransitio
   const hijack = verdict?.verdict === "hijack_suspected";
   const rowStyle = { "--row-delay": `${Math.min(index, 12) * 35}ms` } as CSSProperties;
   return (
-    <article className={`action-row status-${action.status} ${hijack ? "hijack-row" : ""} ${isNew ? "new-row" : "feed-entry"}`} style={rowStyle}>
+    <article
+      id={`action-${action.id}`}
+      className={`action-row status-${action.status} ${hijack ? "hijack-row" : ""} ${isNew ? "new-row" : "feed-entry"} ${guidedFocus ? "guided-focus" : ""}`}
+      style={rowStyle}
+    >
       <button className="action-summary" onClick={onToggle} aria-expanded={expanded}>
         <span className="status-pip" />
         <span className="action-main"><strong>{actionLabel(action)}</strong><small>{action.counterparty} · agent #{action.agent_id}</small></span>
         <span className="action-amount">{formatMoney(action.amount)}</span>
-        <span className="action-status">{action.status.replaceAll("_", " ")}</span>
+        <span className="action-status" title={actionStatusTitle(action.status)}>{action.status.replaceAll("_", " ")}</span>
         <span className="chevron">{expanded ? "−" : "+"}</span>
       </button>
 
       {expanded && <div className="action-detail">
         {hijack && verdict && <div className="hijack-alert">
           <div className="threat-heading">
-            <div className="threat-label"><span>HIJACK SUSPECTED</span><b className="model-chip">gpt-5.6-sol</b></div>
+            <div className="threat-label"><span>HIJACK SUSPECTED</span><b className="model-chip">{displayIntentModel(verdict.model ?? action.intent_model)}</b></div>
             <div className="confidence-stat"><small>CONFIDENCE</small><strong>{verdict.confidence.toFixed(2)}</strong></div>
           </div>
           <blockquote>{verdict.reasoning}</blockquote>
@@ -383,7 +513,7 @@ function ActionRow({ action, expanded, busy, index, isNew, onToggle, onTransitio
         <div className="detail-grid">
           <div><span>POLICY REASONS</span><p>{action.reasons.length ? action.reasons.join(" · ") : "No policy exceptions"}</p></div>
           {!hijack && <div><span>MISSION</span><p>{action.mission_text ?? "No active mission"}</p></div>}
-          <div><span>INTENT VERDICT</span><p>{verdict ? `${verdict.verdict} · ${verdict.model ?? action.intent_model ?? "model unavailable"}` : "unavailable"}</p></div>
+          <div><span>INTENT VERDICT</span><p>{verdict ? `${verdict.verdict} · ${displayIntentModel(verdict.model ?? action.intent_model)}` : "unavailable"}</p></div>
           <div><span>TIME</span><p>{timeAgo(action.created_at)} · {action.created_at} UTC</p></div>
         </div>
         {action.status === "pending_approval" && <div className="inline-actions">

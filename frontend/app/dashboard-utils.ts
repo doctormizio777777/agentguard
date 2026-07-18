@@ -1,4 +1,5 @@
 export type SparklineMetric = "actions" | "spend" | "pending" | "blocked";
+export type ActionStatus = "allowed" | "pending_approval" | "blocked";
 
 export type HourlyAction = {
   created_at: string;
@@ -9,6 +10,21 @@ export type HourlyAction = {
 
 const HOUR_MS = 60 * 60 * 1000;
 const BUCKET_COUNT = 12;
+
+const STATUS_TITLES: Record<ActionStatus, string> = {
+  allowed: "passed policy floor and intent firewall",
+  pending_approval: "waiting for human approval",
+  blocked: "stopped by policy floor or intent firewall",
+};
+
+export function actionStatusTitle(status: ActionStatus): string {
+  return STATUS_TITLES[status];
+}
+
+export function displayIntentModel(model: string | null | undefined): string {
+  if (model === "seed-canned-verdict") return "gpt-5.6 (seeded demo verdict)";
+  return model || "model unavailable";
+}
 
 function utcTimestamp(value: string): number {
   const isoValue = value.includes("T") ? value : value.replace(" ", "T");
