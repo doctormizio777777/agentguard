@@ -33,12 +33,13 @@ test("the clickable hero starts with the factual gift-card evidence and cycles c
 });
 
 
-test("hero click and signature toggle are wired to the two hardcoded cases", () => {
+test("hero click-to-compare still cycles and renders annotated policy reasons", () => {
   assert.equal(existsSync(INTERACTIONS_PATH), true, "landing interactions must exist");
   const interactions = readFileSync(INTERACTIONS_PATH, "utf8");
 
   assert.match(interactions, /onClick=\{\(\) => setHeroIndex/);
   assert.match(interactions, /click to compare/i);
-  assert.match(interactions, /onClick=\{\(\) => setComparisonIndex/);
+  assert.match(interactions, /\/\/ policy reasons/);
+  assert.match(interactions, /reason} ✓/);
   assert.match(interactions, /RECORDED_RUN_LABEL/);
 });

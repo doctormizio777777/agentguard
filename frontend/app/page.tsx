@@ -68,9 +68,9 @@ export default function LandingPage() {
         <div className="landing-section-body">
           <header className="landing-section-heading"><span>THE TWO JUDGES</span><h2>Every action has to clear policy and intent.</h2></header>
           <div className="landing-judge-grid">
-            <article><span>01 / MISSION</span><h3>Declare a mission</h3><p>The agent registers its purpose. Every proposed action is judged against that declared mission.</p></article>
-            <article><span>02 / FUSION</span><h3>Judged twice</h3><p>A deterministic policy floor checks caps, allowlists, and integer cents. GPT-5.6 reads intent against the mission. If the model is unavailable, fusion fails closed.</p></article>
-            <article><span>03 / EVIDENCE</span><h3>Chained forever</h3><p>Every decision is hash-chained with SHA-256. Historical tampering breaks the chain and is verifiable live.</p><Link href="/console">break it yourself → open the console</Link></article>
+            <article><span>01 / MISSION</span><h3>Declare a mission</h3><p>The agent registers its purpose. Every proposed action is judged against that declared mission.</p><small className="landing-judge-micro">set by the operator · every change is ledgered</small></article>
+            <article><span>02 / FUSION</span><h3>Judged twice</h3><p>A deterministic policy floor checks caps, allowlists, and integer cents. GPT-5.6 reads intent against the mission. If the model is unavailable, fusion fails closed.</p><small className="landing-judge-micro">deterministic floor + gpt-5.6 · fails closed</small></article>
+            <article><span>03 / EVIDENCE</span><h3>Chained forever</h3><p>Every decision is hash-chained with SHA-256. Historical tampering breaks the chain and is verifiable live.</p><Link href="/console">break it yourself → open the console</Link><small className="landing-judge-micro">hash-chained · break it yourself in the console</small></article>
           </div>
         </div>
       </section>
@@ -78,9 +78,8 @@ export default function LandingPage() {
       <section className="landing-section landing-signature" data-section="signature">
         <div className="landing-section-index"><span>03</span><small>THE BLIND SPOT</small></div>
         <div className="landing-section-body">
-          <header className="landing-section-heading"><span>THE ATTACK RULES CAN&apos;T SEE</span><h2>Same transaction. Different intent.</h2></header>
+          <header className="landing-section-heading"><span>THE ATTACK RULES CAN&apos;T SEE</span><h2>Rules see numbers. The firewall reads intent.</h2></header>
           <IntentComparison />
-          <p className="landing-signature-line">Rules see numbers. The firewall reads intent.</p>
         </div>
       </section>
 

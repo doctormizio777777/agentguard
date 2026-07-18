@@ -47,7 +47,8 @@ test("hero and signature section use the real demo evidence", () => {
   assert.match(page, /className="landing-primary-link" href="\/console\?demo=1"/);
   assert.match(page, /<HeroVerdictCard \/>/);
   assert.match(page, /<IntentComparison \/>/);
-  assert.match(page, /Rules see numbers\. The firewall reads intent\./);
+  assert.match(page, /<h2>Rules see numbers\. The firewall reads intent\.<\/h2>/);
+  assert.doesNotMatch(page, /className="landing-signature-line"/);
 });
 
 
