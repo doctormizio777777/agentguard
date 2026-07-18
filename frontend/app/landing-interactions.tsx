@@ -20,13 +20,19 @@ const DEFAULT_ATTACK_CASE = ATTACK_CASES.find(({ id }) => id === DEFAULT_ATTACK_
 
 export function HeroVerdictCard() {
   const [heroIndex, setHeroIndex] = useState(0);
+  const [hasCompared, setHasCompared] = useState(false);
   const evidence = HERO_CASES[heroIndex];
+
+  const compareEvidence = () => {
+    setHasCompared(true);
+    setHeroIndex(nextCaseIndex(heroIndex, HERO_CASES.length));
+  };
 
   return (
     <button
       aria-label="Compare suspicious and aligned intent evidence"
-      className={`landing-threat-card landing-threat-card-${evidence.tone}`}
-      onClick={() => setHeroIndex(nextCaseIndex(heroIndex, HERO_CASES.length))}
+      className={`landing-threat-card landing-threat-card-${evidence.tone} ${hasCompared ? "has-compared" : ""}`}
+      onClick={compareEvidence}
       type="button"
     >
       <div className="landing-threat-topline">

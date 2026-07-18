@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { API_BASE_URL } from "./api-config";
+import { useCountUp } from "./motion-values";
 
 
 type Summary = {
@@ -16,6 +17,8 @@ type Summary = {
 export function LiveProofStrip() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [status, setStatus] = useState<"CONNECTING" | "LIVE" | "WAKING">("CONNECTING");
+  const [enteredViewport, setEnteredViewport] = useState(false);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -37,26 +40,52 @@ export function LiveProofStrip() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) {
+      setEnteredViewport(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      setEnteredViewport(true);
+      observer.unobserve(shell);
+    }, { threshold: 0.15 });
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, []);
+
   const values = [
-    { label: "ACTIONS TODAY", value: summary?.actions_today ?? "—" },
-    { label: "THREATS BLOCKED", value: summary?.threats_blocked ?? "—" },
-    { label: "PENDING", value: summary?.pending_count ?? "—" },
-    { label: "AUDIT CHAIN", value: summary ? (summary.ledger.valid ? "VALID" : "BROKEN") : "—" },
+    { label: "ACTIONS TODAY", target: summary?.actions_today ?? null },
+    { label: "THREATS BLOCKED", target: summary?.threats_blocked ?? null },
+    { label: "PENDING", target: summary?.pending_count ?? null },
   ];
 
   return (
-    <div className="landing-proof-shell">
+    <div className="landing-proof-shell" ref={shellRef}>
       <div className="landing-proof-grid">
         {values.map((item) => (
           <div className="landing-proof-stat" key={item.label}>
             <span>{item.label}</span>
-            <strong>{item.value}</strong>
+            <ProofNumber active={enteredViewport && summary !== null} target={item.target} />
           </div>
         ))}
+        <div className="landing-proof-stat">
+          <span>AUDIT CHAIN</span>
+          <strong className="landing-proof-value">{summary ? (summary.ledger.valid ? "VALID" : "BROKEN") : "—"}</strong>
+        </div>
       </div>
       <p className={`landing-proof-caption is-${status.toLowerCase()}`}>
         <i />pulled live from the running system · {status === "WAKING" ? "BACKEND WAKING — OPEN THE CONSOLE TO RETRY" : status}
       </p>
     </div>
   );
+}
+
+
+function ProofNumber({ active, target }: { active: boolean; target: number | null }) {
+  const { value, revision } = useCountUp(target, active);
+  return <strong className="landing-proof-value" key={revision}>{value === null ? "—" : Math.round(value)}</strong>;
 }

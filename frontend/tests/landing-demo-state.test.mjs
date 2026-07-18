@@ -37,7 +37,8 @@ test("hero click-to-compare still cycles and renders annotated policy reasons", 
   assert.equal(existsSync(INTERACTIONS_PATH), true, "landing interactions must exist");
   const interactions = readFileSync(INTERACTIONS_PATH, "utf8");
 
-  assert.match(interactions, /onClick=\{\(\) => setHeroIndex/);
+  assert.match(interactions, /onClick=\{compareEvidence\}/);
+  assert.match(interactions, /setHeroIndex\(nextCaseIndex\(heroIndex, HERO_CASES\.length\)\)/);
   assert.match(interactions, /click to compare/i);
   assert.match(interactions, /\/\/ policy reasons/);
   assert.match(interactions, /reason} ✓/);

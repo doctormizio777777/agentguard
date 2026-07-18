@@ -7,6 +7,7 @@ import { API_BASE_URL, DEMO_LINKS } from "./api-config";
 import { AgentGuardMark } from "./agentguard-mark";
 import { actionStatusTitle, buildHourlySeries, displayIntentModel, sparklinePoints } from "./dashboard-utils";
 import { GUIDED_TOUR_STEPS, requestScenarioStep, type GuidedTourTone, type ScenarioStepResult } from "./guided-demo";
+import { useCountUp } from "./motion-values";
 
 type IntentVerdict = {
   verdict: "aligned" | "suspicious" | "hijack_suspected";
@@ -84,34 +85,6 @@ function timeAgo(value: string): string {
 
 function actionLabel(action: Action): string {
   return action.action_type.replaceAll("_", " ");
-}
-
-function useInitialCountUp(target: number | null): number | null {
-  const [displayValue, setDisplayValue] = useState<number | null>(target);
-  const animated = useRef(false);
-
-  useEffect(() => {
-    if (target === null) return;
-    if (animated.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      animated.current = true;
-      setDisplayValue(target);
-      return;
-    }
-    animated.current = true;
-    const duration = 700;
-    const startedAt = performance.now();
-    let frame = 0;
-    const update = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / duration);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplayValue(target * eased);
-      if (progress < 1) frame = requestAnimationFrame(update);
-    };
-    frame = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(frame);
-  }, [target]);
-
-  return displayValue;
 }
 
 type MissionControlProps = {
@@ -418,9 +391,9 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
         <div className="header-chips">
           <a className="console-about-link" href="/">← About</a>
           {summary?.demo && <span className="demo-mode-chip">PUBLIC DEMO · RESETS PERIODICALLY</span>}
-          <span className="status-chip"><i className="dot dot-ok" />{summary?.agents_online ?? "—"} AGENTS ONLINE</span>
-          <span className="status-chip"><i className="dot dot-danger" />{summary?.threats_blocked ?? "—"} THREATS BLOCKED</span>
-          <span className="status-chip"><i className={`dot ${summary?.ledger.valid ? "dot-ok" : "dot-danger"}`} />AUDIT CHAIN {summary ? (summary.ledger.valid ? "VALID" : "BROKEN") : "—"}</span>
+          <span className="status-chip" key={`agents-${summary?.agents_online ?? "loading"}`}><i className="dot dot-ok" />{summary?.agents_online ?? "—"} AGENTS ONLINE</span>
+          <span className="status-chip" key={`threats-${summary?.threats_blocked ?? "loading"}`}><i className="dot dot-danger" />{summary?.threats_blocked ?? "—"} THREATS BLOCKED</span>
+          <span className="status-chip" key={`chain-${summary?.ledger.valid ?? "loading"}`}><i className={`dot ${summary?.ledger.valid ? "dot-ok" : "dot-danger"}`} />AUDIT CHAIN {summary ? (summary.ledger.valid ? "VALID" : "BROKEN") : "—"}</span>
           <span className={`live-chip ${pollingActive ? "is-live" : "is-paused"}`}>
             <i className="live-dot" /><strong>{pollingActive ? "LIVE" : "PAUSED"}</strong><small>{refreshAge === null ? "—" : `${refreshAge}s`}</small>
           </span>
@@ -429,7 +402,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
 
       {summary?.demo && <section className="demo-intro" aria-label="Public demo overview">
         <div className="demo-intro-copy">
-          <strong>The intelligent firewall for AI agents — it knows if your agent is still yours</strong>
+          <strong>The firewall for AI agents — it knows if your agent is still yours</strong>
           <span>A GPT-5.6 intent layer that catches hijacked agents static rules can&apos;t see. Watch it live below.</span>
         </div>
         <nav className="demo-links" aria-label="Demo resources">
@@ -579,12 +552,12 @@ function Kpi({ label, value, detail, series, tone = "default", format = (current
   tone?: "default" | "warn" | "danger";
   format?: (value: number) => string;
 }) {
-  const animatedValue = useInitialCountUp(value);
+  const { value: animatedValue, revision } = useCountUp(value);
   const glow = tone === "danger" && (value ?? 0) > 0;
   return (
     <article className={`kpi-card tone-${tone} ${glow ? "has-danger" : ""}`}>
       <span>{label}</span>
-      <div className="kpi-reading"><strong>{animatedValue === null ? "—" : format(animatedValue)}</strong><Sparkline values={series} tone={tone} /></div>
+      <div className="kpi-reading"><strong className="kpi-value" key={revision}>{animatedValue === null ? "—" : format(animatedValue)}</strong><Sparkline values={series} tone={tone} /></div>
       <small>{detail}</small>
     </article>
   );
@@ -669,6 +642,7 @@ function AgentRisk({ agent, guidedTone }: { agent: Agent; guidedTone?: GuidedTou
     <div
       id={agent.name === "procurement-bot" ? "tour-agent-procurement" : undefined}
       className={`agent-risk ${guidedTone ? `guided-focus guided-focus-${guidedTone}` : ""}`}
+      tabIndex={0}
     >
       <div className="agent-risk-head"><div><strong>{agent.name}</strong><small>{agent.declared_mission}</small></div><b className={`risk-${tone}`}>{agent.risk_score}</b></div>
       <div className="risk-track"><i className="risk-tick risk-tick-low" /><i className="risk-tick risk-tick-high" /><span className={`risk-fill risk-fill-${tone}`} style={riskStyle} /></div>

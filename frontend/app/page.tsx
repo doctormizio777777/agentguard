@@ -31,7 +31,7 @@ export default function LandingPage() {
         <div className="landing-hero-copy">
           <span className="landing-kicker"><i />MISSION-AWARE EXECUTION CONTROL</span>
           <h1>It knows if your agent is still yours.</h1>
-          <p>The intelligent firewall for AI agents — a GPT-5.6 intent layer that catches hijacked agents static rules can&apos;t see.</p>
+          <p>The firewall for AI agents — a GPT-5.6 intent layer that catches hijacked agents static rules can&apos;t see.</p>
           <p className="landing-model-line">the firewall IS GPT-5.6 judging GPT-5.6</p>
           <div className="landing-hero-actions">
             <Link className="landing-secondary-link" href="/console">Launch live console →</Link>
@@ -93,7 +93,7 @@ export default function LandingPage() {
               <tbody>{COMPARISON_ROWS.map(([label, ...values]) => <tr key={label}><th scope="row">{label}</th>{values.map((value, index) => <td className={index === 3 ? "is-agentguard" : ""} key={`${label}-${index}`}><span className={`comparison-${value.toLowerCase()}`}>{value}</span></td>)}</tr>)}</tbody>
             </table>
           </div>
-          <p className="landing-comparison-note">Deterministic layers catch false facts. AgentGuard catches betrayed intent — they compose, not compete.</p>
+          <p className="landing-comparison-note">Deterministic layers catch rule violations. AgentGuard catches betrayed intent — they compose, not compete.</p>
           <p className="landing-comparison-note">AgentGuard does not hold funds or replace spend controls — it composes with them.</p>
         </div>
       </section>
@@ -113,7 +113,7 @@ export default function LandingPage() {
       </section>
 
       <section className="landing-built-with" data-section="built-with">
-        <div className="landing-built-copy"><span>BUILT WITH</span><p>Codex + GPT-5.6 · FastAPI · SQLite · Next.js · MCP</p><strong>OpenAI Build Week 2026 entry</strong></div>
+        <div className="landing-built-copy"><span>BUILT WITH</span><p>Codex + GPT-5.6 <small>· FastAPI · SQLite · Next.js · MCP</small></p><strong>OpenAI Build Week 2026 entry</strong></div>
         <footer className="landing-footer"><span>AGENTGUARD · MIT</span><nav aria-label="Footer navigation"><a href="https://github.com/doctormizio777777/agentguard">REPO</a><Link href="/console">CONSOLE</Link><a href="https://github.com/doctormizio777777/agentguard/blob/main/LICENSE">LICENSE</a></nav></footer>
       </section>
     </main>

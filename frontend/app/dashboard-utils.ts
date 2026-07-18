@@ -26,6 +26,12 @@ export function displayIntentModel(model: string | null | undefined): string {
   return model || "model unavailable";
 }
 
+export function countUpValue(target: number, progress: number): number {
+  const boundedProgress = Math.min(1, Math.max(0, progress));
+  const easedProgress = 1 - Math.pow(1 - boundedProgress, 3);
+  return target * easedProgress;
+}
+
 function utcTimestamp(value: string): number {
   const isoValue = value.includes("T") ? value : value.replace(" ", "T");
   const zonedValue = /(?:Z|[+-]\d{2}:\d{2})$/.test(isoValue) ? isoValue : `${isoValue}Z`;

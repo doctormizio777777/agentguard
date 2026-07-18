@@ -11,7 +11,7 @@ const APP_DIR = join(TEST_DIR, "..", "app");
 
 test("metadata states the product promise and security layers", () => {
   const layout = readFileSync(join(APP_DIR, "layout.tsx"), "utf8");
-  assert.match(layout, /AgentGuard — The intelligent firewall for AI agents/);
+  assert.match(layout, /AgentGuard — The firewall for AI agents/);
   assert.match(layout, /A GPT-5\.6 intent layer that catches hijacked agents static rules can't see\. Policy floor, intent firewall, tamper-evident audit chain\./);
   assert.match(layout, /themeColor:\s*"#0f1117"/);
 });

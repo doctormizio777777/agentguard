@@ -91,7 +91,7 @@ test("landing copy states the problem, two judges, honest comparison, and proof 
   assert.match(page, /Judged twice/);
   assert.match(page, /Chained forever/);
   assert.match(page, /Spend management tools/);
-  assert.match(page, /Deterministic layers catch false facts\. AgentGuard catches betrayed intent/);
+  assert.match(page, /Deterministic layers catch rule violations\. AgentGuard catches betrayed intent/);
   assert.match(page, /docs\/VERIFICATION\.md/);
   assert.match(page, /docs\/reviews\/2026-07-18-final-security-audit\.md/);
   assert.match(page, /docker compose up/);

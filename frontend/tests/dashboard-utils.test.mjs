@@ -7,6 +7,7 @@ import {
   displayIntentModel,
   sparklinePoints,
 } from "../app/dashboard-utils.ts";
+import * as dashboardUtils from "../app/dashboard-utils.ts";
 
 
 const NOW = Date.UTC(2026, 6, 17, 12, 30);
@@ -48,5 +49,14 @@ test("displayIntentModel labels recorded verdicts without changing real model na
   assert.equal(displayIntentModel("seed-canned-verdict"), "gpt-5.6 (recorded run · reproducible in console)");
   assert.equal(displayIntentModel("openai/gpt-5.6-sol"), "openai/gpt-5.6-sol");
   assert.equal(displayIntentModel(null), "model unavailable");
+});
+
+
+test("count-up interpolation lands exactly on the fetched target", () => {
+  assert.equal(typeof dashboardUtils.countUpValue, "function");
+  if (typeof dashboardUtils.countUpValue !== "function") return;
+  assert.equal(dashboardUtils.countUpValue(73, 0), 0);
+  assert.equal(dashboardUtils.countUpValue(73, 1), 73);
+  assert.equal(dashboardUtils.countUpValue(73, 2), 73);
 });
 
