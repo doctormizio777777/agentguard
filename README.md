@@ -78,6 +78,31 @@ python scripts/demo_hijack.py
 
 The live demo is optional. Compose remains keyless because its seed verdicts are deterministic canned data.
 
+## Use via MCP
+
+Plug AgentGuard into any MCP client — Codex CLI, Claude, or ChatGPT developer mode. Every agent action gets judged before it executes.
+
+```json
+{
+  "server": {
+    "command": "python",
+    "args": ["-m", "app.mcp_server"],
+    "cwd": "backend"
+  },
+  "client": {
+    "transport": "streamable-http",
+    "url": "http://127.0.0.1:8001/mcp"
+  }
+}
+```
+
+- `declare_mission` — Declare or replace an agent mission and include it in future audit snapshots.
+- `request_action` — Request authorization before any high-risk action; proceed only when status is allowed.
+- `check_action_status` — Poll a pending action after the human approval decision.
+- `get_policies` — Read the active caps, thresholds, and allowlists for an agent.
+
+Any MCP-capable agent gets the policy floor + GPT-5.6 intent judgment + hash-chained ledger without SDK work.
+
 ## 4. Architecture
 
 ```text

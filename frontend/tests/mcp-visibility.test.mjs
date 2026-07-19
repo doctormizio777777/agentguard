@@ -15,6 +15,7 @@ const missionControl = readFileSync(join(APP_DIR, "mission-control.tsx"), "utf8"
 const page = readFileSync(join(APP_DIR, "page.tsx"), "utf8");
 const css = readFileSync(join(APP_DIR, "globals.css"), "utf8");
 const server = readFileSync(join(REPO_DIR, "backend", "app", "mcp_server.py"), "utf8");
+const readme = readFileSync(join(REPO_DIR, "README.md"), "utf8");
 
 
 test("the console exposes the real streamable HTTP MCP runtime", () => {
@@ -47,11 +48,44 @@ test("the MCP panel lists only the four tools implemented by the server", () => 
 });
 
 
-test("the disclosure overlays the console and the landing links to it without a new section", () => {
+test("the disclosure overlays the console and the landing evidence grid links to it", () => {
   assert.match(panel, /<details className="mcp-visibility"/);
   assert.match(css, /\.mcp-visibility-panel\s*\{[^}]*position:\s*absolute/s);
   assert.match(css, /@media \(max-width:620px\)[\s\S]*\.mcp-visibility-panel\s*\{[^}]*position:\s*fixed/s);
-  assert.match(page, /Works with any MCP client/);
-  assert.match(page, /href="\/console"/);
+
+  const evidenceGrid = page.match(/<div className="landing-proof-links">([\s\S]*?)<\/div>/)?.[1] ?? "";
+  assert.equal((evidenceGrid.match(/<(?:a|Link)\b/g) ?? []).length, 4);
+  assert.match(evidenceGrid, /<Link href="\/console">/);
+  assert.match(evidenceGrid, /<span>INTEGRATION<\/span>/);
+  assert.match(evidenceGrid, /<strong>Works with any MCP client<\/strong>/);
+  assert.match(evidenceGrid, /Codex CLI, Claude, ChatGPT developer mode — every agent action judged before it executes\. Config in the console →/);
+  assert.doesNotMatch(page, /landing-mcp-link/);
   assert.equal((page.match(/data-section=/g) ?? []).length, 9);
+});
+
+
+test("README and console publish the same real MCP runtime and four tools", () => {
+  const config = panel.match(/const MCP_CONFIG = `([\s\S]*?)`;/)?.[1];
+  assert.ok(config);
+  assert.match(readme, /## Use via MCP/);
+  assert.match(readme, /Plug AgentGuard into any MCP client — Codex CLI, Claude, or ChatGPT developer mode\. Every agent action gets judged before it executes\./);
+  assert.ok(readme.includes(`\`\`\`json\n${config}\n\`\`\``));
+
+  for (const tool of ["declare_mission", "request_action", "check_action_status", "get_policies"]) {
+    assert.match(readme, new RegExp("- `" + tool + "` — "));
+    assert.match(server, new RegExp(`def ${tool}\\(`));
+    assert.match(panel, new RegExp(tool));
+  }
+
+  assert.match(readme, /Any MCP-capable agent gets the policy floor \+ GPT-5\.6 intent judgment \+ hash-chained ledger without SDK work\./);
+});
+
+
+test("mobile evidence and console controls keep complete text and forty-four pixel targets", () => {
+  assert.match(css, /@media \(max-width:860px\)\s*\{\s*\.mcp-visibility-panel\s*\{[^}]*position:fixed;[^}]*right:12px;[^}]*left:12px;[^}]*width:auto/s);
+  assert.match(css, /@media \(max-width:620px\)[\s\S]*\.landing-judge-grid a,\.landing-tamper-line a\s*\{[^}]*min-height:44px/s);
+  assert.match(css, /@media \(max-width:620px\)[\s\S]*\.landing-footer a\s*\{[^}]*min-width:44px/s);
+  assert.match(css, /@media \(max-width:620px\)[\s\S]*\.mcp-visibility>summary,\.mcp-visibility-panel>a,\.mcp-config-heading button\s*\{[^}]*min-height:44px/s);
+  assert.match(css, /@media \(max-width:620px\)[\s\S]*\.mcp-config-heading button\s*\{[^}]*min-width:44px/s);
+  assert.match(css, /@media \(max-width:620px\)[\s\S]*\.agent-risk-head small\s*\{[^}]*overflow:visible;[^}]*white-space:normal/s);
 });

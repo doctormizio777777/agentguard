@@ -21,6 +21,7 @@ export function LayerDiagram() {
         <path className="layer-connector" d="M216 259H310" />
         <path className="layer-connector layer-connector-exit" d="M790 389H836V278H926" />
         <path className="layer-connector layer-connector-dim" d="M836 98H926M836 188H926M836 368H926M836 458H926" />
+        <path className="layer-motion-lane" d="M216 259H330V139V233V327V421V470H836V278H916" />
 
         <g className="layer-core">
           <rect className="layer-core-frame" x="310" y="35" width="480" height="450" rx="5" />
@@ -64,6 +65,7 @@ export function LayerDiagram() {
           <text className="layer-node-detail" x="180" y="84" textAnchor="middle">any framework · via MCP</text>
         </g>
         <path className="layer-connector" d="M180 110V155" />
+        <path className="layer-motion-lane" d="M180 110V140H40V253V354V455V556V680H180V694" />
 
         <g className="layer-core">
           <rect className="layer-core-frame" x="28" y="155" width="304" height="500" rx="5" />

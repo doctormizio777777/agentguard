@@ -119,6 +119,7 @@ export default function LandingPage() {
             <a href="https://github.com/doctormizio777777/agentguard" target="_blank" rel="noreferrer"><span>SOURCE</span><strong>GitHub repo</strong><small>Read the implementation →</small></a>
             <a href="https://github.com/doctormizio777777/agentguard/blob/main/docs/VERIFICATION.md" target="_blank" rel="noreferrer"><span>PROOF</span><strong>VERIFICATION.md</strong><small>Every claim → proof → real output</small></a>
             <a href="https://github.com/doctormizio777777/agentguard/blob/main/docs/reviews/2026-07-18-final-security-audit.md" target="_blank" rel="noreferrer"><span>SECURITY</span><strong>Final security audit</strong><small>Exposure and accepted risks →</small></a>
+            <Link href="/console"><span>INTEGRATION</span><strong>Works with any MCP client</strong><small>Codex CLI, Claude, ChatGPT developer mode — every agent action judged before it executes. Config in the console →</small></Link>
           </div>
           <p className="landing-tamper-line">You can even tamper with the ledger yourself — the chain will catch you. <Link href="/console">→ open the console</Link></p>
           <div className="landing-local-run"><div><span>LOCAL / 60 SECONDS</span><strong>No API key required</strong></div><pre><code>git clone https://github.com/doctormizio777777/agentguard.git{`\n`}cd agentguard{`\n`}docker compose up --build</code></pre></div>
@@ -126,7 +127,7 @@ export default function LandingPage() {
       </section>
 
       <section className="landing-built-with" data-section="built-with">
-        <div className="landing-built-copy"><span>BUILT WITH</span><p>Codex + GPT-5.6 <small>· FastAPI · SQLite · Next.js · MCP</small></p><Link className="landing-mcp-link" href="/console">Works with any MCP client → see the console</Link><strong>OpenAI Build Week 2026 entry</strong></div>
+        <div className="landing-built-copy"><span>BUILT WITH</span><p>Codex + GPT-5.6 <small>· FastAPI · SQLite · Next.js · MCP</small></p><strong>OpenAI Build Week 2026 entry</strong></div>
         <footer className="landing-footer"><span>AGENTGUARD · MIT</span><nav aria-label="Footer navigation"><a href="https://github.com/doctormizio777777/agentguard">REPO</a><Link href="/console">CONSOLE</Link><a href="https://github.com/doctormizio777777/agentguard/blob/main/LICENSE">LICENSE</a></nav></footer>
       </section>
     </main>

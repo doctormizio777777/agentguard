@@ -41,6 +41,7 @@ test("THE LAYER renders the approved mission-control architecture", () => {
 
   assert.match(layer, /className="layer-action-dot layer-action-dot-allowed"/);
   assert.match(layer, /className="layer-action-dot layer-action-dot-blocked"/);
+  assert.match(layer, /className="layer-motion-lane"/);
   assert.doesNotMatch(layer, /#[0-9a-f]{3,8}/i);
 });
 
@@ -48,8 +49,17 @@ test("THE LAYER renders the approved mission-control architecture", () => {
 test("the layer route, verdict lights, and reduced-motion fallback use existing tokens", () => {
   assert.match(css, /\.layer-action-dot-allowed\s*\{[^}]*animation:\s*layer-action-allowed/s);
   assert.match(css, /\.layer-action-dot-blocked\s*\{[^}]*animation:\s*layer-action-blocked/s);
+  assert.match(css, /\.layer-diagram\s*\{[^}]*--layer-cycle:/s);
+  assert.match(css, /\.layer-action-dot-allowed\s*\{[^}]*animation:\s*layer-action-allowed var\(--layer-cycle\)/s);
+  assert.match(css, /\.layer-action-dot-blocked\s*\{[^}]*animation:\s*layer-action-blocked var\(--layer-cycle\)/s);
+  assert.match(css, /offset-path:path\("M216 259 H330 V139 V233 V327 V421 V470 H836 V278 H916"\)/);
+  assert.match(css, /offset-path:path\("M216 259 H330 V139 V233 H340"\)/);
+  assert.match(css, /\.layer-action-dot-mobile\s*\{[^}]*offset-path:path\("M180 110 V140 H40 V253 V354 V455 V556 V680 H180 V694"\)/s);
+  assert.match(css, /\.layer-action-dot-mobile-blocked\s*\{[^}]*offset-path:path\("M180 110 V140 H40 V253 V354 H45"\)/s);
   assert.match(css, /@keyframes layer-action-allowed/);
   assert.match(css, /@keyframes layer-action-blocked/);
+  assert.match(css, /@keyframes layer-action-allowed\s*\{[\s\S]*52%,100%\s*\{\s*opacity:0/s);
+  assert.match(css, /@keyframes layer-action-blocked\s*\{[\s\S]*0%,62%\s*\{\s*opacity:0/s);
   assert.match(css, /\.layer-stage-intent\s*\{[^}]*animation:\s*layer-intent-stage/s);
   assert.match(css, /@media \(prefers-reduced-motion:reduce\)[\s\S]*\.layer-action-dot[^}]*animation:\s*none!important/s);
 });
