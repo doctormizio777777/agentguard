@@ -22,6 +22,7 @@ ACTION_TYPES = {
 PENDING_STATUS = decision_to_status("PENDING_APPROVAL")
 ALLOWED_STATUS = decision_to_status("ALLOW")
 BLOCKED_STATUS = decision_to_status("BLOCK")
+DEFAULT_INTENT_UNAVAILABLE_REASON = "intent firewall unavailable — human review required"
 
 
 class AgentNotFoundError(ValueError):
@@ -81,6 +82,7 @@ def create_action(
     payload: Mapping[str, Any],
     intent_judge: Any | None = None,
     scenario_tag: str | None = None,
+    intent_unavailable_reason: str = DEFAULT_INTENT_UNAVAILABLE_REASON,
 ) -> dict[str, Any]:
     with get_connection() as connection:
         connection.execute("BEGIN IMMEDIATE")
@@ -93,6 +95,7 @@ def create_action(
             payload,
             intent_judge=intent_judge,
             scenario_tag=scenario_tag,
+            intent_unavailable_reason=intent_unavailable_reason,
         )
 
 
@@ -105,6 +108,7 @@ def create_action_in_transaction(
     payload: Mapping[str, Any],
     intent_judge: Any | None = None,
     scenario_tag: str | None = None,
+    intent_unavailable_reason: str = DEFAULT_INTENT_UNAVAILABLE_REASON,
 ) -> dict[str, Any]:
     if action_type not in ACTION_TYPES:
         raise ValueError("unsupported action_type")
@@ -152,16 +156,17 @@ def create_action_in_transaction(
             },
             )
         except Exception:
-            intent_error = "intent firewall unavailable — human review required"
+            intent_error = intent_unavailable_reason
     fused = fuse_decision(
         result["decision"],
         result["reasons"],
         None if intent_verdict is None else intent_verdict.model_dump(),
         mission_row is not None,
+        unavailable_reason=intent_unavailable_reason,
     )
     status = decision_to_status(fused["decision"])
     policy_reason = "; ".join(fused["reasons"])
-    intent_json = None if intent_verdict is None else json.dumps(intent_verdict.model_dump(), sort_keys=True)
+    intent_json = None if intent_verdict is None else json.dumps(intent_verdict.model_dump(exclude_none=True), sort_keys=True)
     cursor = connection.execute(
         """INSERT INTO actions
            (agent_id, action_type, amount_cents, counterparty, payload, status, policy_reason,
@@ -289,7 +294,7 @@ def _ledger_snapshot(connection: sqlite3.Connection, row: Any, decision: Decisio
         "SELECT mission_text FROM missions WHERE agent_id = ? AND active = 1 ORDER BY id DESC LIMIT 1",
         (row["agent_id"],),
     ).fetchone()
-    return {
+    snapshot = {
         "agent_id": row["agent_id"],
         "action_type": row["action_type"],
         "amount_cents": row["amount_cents"],
@@ -301,6 +306,10 @@ def _ledger_snapshot(connection: sqlite3.Connection, row: Any, decision: Decisio
         "intent_verdict": None if row["intent_verdict"] is None else json.loads(row["intent_verdict"]),
         "intent_error": row["intent_error"],
     }
+    metadata = json.loads(row["payload"]).get("metadata")
+    if metadata is not None:
+        snapshot["metadata"] = metadata
+    return snapshot
 
 
 def _action_response(
@@ -352,6 +361,7 @@ def fuse_decision(
     policy_reasons: list[str],
     intent_verdict: Mapping[str, Any] | None,
     mission_present: bool,
+    unavailable_reason: str = DEFAULT_INTENT_UNAVAILABLE_REASON,
 ) -> dict[str, Any]:
     reasons = list(policy_reasons)
     if not mission_present:
@@ -359,7 +369,7 @@ def fuse_decision(
         return {"decision": "PENDING_APPROVAL" if policy_decision == "ALLOW" else policy_decision, "reasons": reasons}
 
     if intent_verdict is None:
-        reasons.append("intent firewall unavailable — human review required")
+        reasons.append(unavailable_reason)
         return {"decision": "PENDING_APPROVAL" if policy_decision == "ALLOW" else policy_decision, "reasons": reasons}
 
     verdict = intent_verdict["verdict"]

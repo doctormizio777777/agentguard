@@ -32,6 +32,8 @@ def test_judge_intent_parses_structured_verdict_and_uses_provider_configuration(
     assert verdict.confidence == 0.87
     assert verdict.model == "test/model"
     assert calls[0]["response_format"]["type"] == "json_schema"
+    assert calls[0]["timeout"] == 15.0
+    assert calls[0]["max_tokens"] == 180
     assert "prompt injection" in calls[0]["messages"][0]["content"].lower()
 
 

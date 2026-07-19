@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
 from typing import Annotated, Any, Callable, Literal
 
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -18,6 +18,12 @@ from .demo_seed import reset_demo_database
 from .demo_scenario import ScenarioOrderError, run_demo_scenario_step
 from .demo_tamper import DemoTamperUnavailableError, restore_demo_ledger, tamper_demo_ledger
 from .ledger import verify_chain
+from .live_intent import (
+    LiveIntentRateLimitError,
+    LiveScenarioId,
+    client_ip_from_forwarded,
+    run_live_intent,
+)
 from .policy import Decision
 from .risk import compute_risk, risk_components
 from .settings import allowed_origins, auto_reseed_seconds, demo_mode_enabled, demo_reset_key
@@ -104,6 +110,12 @@ class ActionResponse(BaseModel):
 
 class ScenarioStepRequest(BaseModel):
     step: int = Field(ge=0, le=5)
+
+
+class LiveIntentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scenario_id: LiveScenarioId
 
 
 @asynccontextmanager
@@ -324,6 +336,19 @@ def demo_scenario_step(request: ScenarioStepRequest) -> dict[str, Any]:
         return run_demo_scenario_step(request.step)
     except ScenarioOrderError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.post("/demo/live-intent")
+def demo_live_intent(request: LiveIntentRequest, http_request: Request) -> dict[str, Any]:
+    _require_demo_mode()
+    client_ip = client_ip_from_forwarded(
+        http_request.headers.get("x-forwarded-for"),
+        None if http_request.client is None else http_request.client.host,
+    )
+    try:
+        return run_live_intent(request.scenario_id, client_ip)
+    except LiveIntentRateLimitError as error:
+        raise HTTPException(status_code=429, detail=str(error)) from error
 
 
 @app.post("/demo/tamper")

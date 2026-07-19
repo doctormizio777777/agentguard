@@ -116,6 +116,23 @@ def initialize_database(connection: sqlite3.Connection) -> None:
             original_snapshot TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS live_intent_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_fingerprint TEXT NOT NULL,
+            scenario_id TEXT NOT NULL,
+            state TEXT NOT NULL CHECK (state IN ('pending', 'completed')),
+            cached INTEGER NOT NULL DEFAULT 0 CHECK (cached IN (0, 1)),
+            action_id INTEGER,
+            result_json TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (action_id) REFERENCES actions (id) ON DELETE SET NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_live_intent_ip_created
+            ON live_intent_runs (client_fingerprint, created_at);
+        CREATE INDEX IF NOT EXISTS idx_live_intent_scenario_cache
+            ON live_intent_runs (client_fingerprint, scenario_id, created_at);
         """
     )
     action_columns = {row[1] for row in connection.execute("PRAGMA table_info(actions)").fetchall()}

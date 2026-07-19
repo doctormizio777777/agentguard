@@ -7,6 +7,15 @@ import { API_BASE_URL, DEMO_LINKS } from "./api-config";
 import { AgentGuardMark } from "./agentguard-mark";
 import { actionStatusTitle, buildHourlySeries, displayIntentModel, sparklinePoints } from "./dashboard-utils";
 import { GUIDED_TOUR_STEPS, requestScenarioStep, type GuidedTourTone, type ScenarioStepResult } from "./guided-demo";
+import {
+  DEFAULT_LIVE_SCENARIO_ID,
+  LIVE_INTENT_PROGRESS,
+  LIVE_SCENARIOS,
+  requestLiveIntent,
+  truncateResponseId,
+  type LiveIntentResult,
+  type LiveScenarioId,
+} from "./live-intent";
 import { useCountUp } from "./motion-values";
 
 type IntentVerdict = {
@@ -14,6 +23,8 @@ type IntentVerdict = {
   confidence: number;
   reasoning: string;
   model?: string;
+  response_id?: string;
+  evaluated_at?: string;
 };
 
 type Action = {
@@ -90,6 +101,15 @@ function actionLabel(action: Action): string {
   return action.action_type.replaceAll("_", " ");
 }
 
+function isLiveRun(action: Action): boolean {
+  const metadata = action.payload.metadata;
+  return typeof metadata === "object" && metadata !== null && (metadata as { live_run?: unknown }).live_run === true;
+}
+
+function progressPause(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 type MissionControlProps = {
   initialDemoOpen?: boolean;
 };
@@ -117,6 +137,10 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const [tamperVerification, setTamperVerification] = useState<LedgerVerification | null>(null);
   const [tamperBusy, setTamperBusy] = useState<"tamper" | "restore" | null>(null);
   const [tamperError, setTamperError] = useState<string | null>(null);
+  const [liveScenarioId, setLiveScenarioId] = useState<LiveScenarioId>(DEFAULT_LIVE_SCENARIO_ID);
+  const [liveProgressIndex, setLiveProgressIndex] = useState<number | null>(null);
+  const [liveIntentResult, setLiveIntentResult] = useState<LiveIntentResult | null>(null);
+  const [liveIntentError, setLiveIntentError] = useState<string | null>(null);
   const [, setClockTick] = useState(0);
   const knownActionIds = useRef<Set<number> | null>(null);
   const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -404,6 +428,27 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
     }
   };
 
+  const runLiveIntent = async () => {
+    setLiveIntentError(null);
+    setLiveIntentResult(null);
+    try {
+      setLiveProgressIndex(0);
+      await progressPause(120);
+      setLiveProgressIndex(1);
+      const result = await requestLiveIntent(API_BASE_URL, liveScenarioId);
+      setLiveProgressIndex(2);
+      await progressPause(120);
+      setLiveProgressIndex(3);
+      setLiveIntentResult(result);
+      await refresh();
+      setExpanded((current) => new Set(current).add(result.action_id));
+    } catch (reason) {
+      setLiveIntentError(reason instanceof Error ? reason.message : "Live intent check failed");
+    } finally {
+      setLiveProgressIndex(null);
+    }
+  };
+
   const pendingActions = useMemo(() => actions.filter((action) => action.status === "pending_approval"), [actions]);
   const series = useMemo(() => ({
     actions: buildHourlySeries(actions, "actions"),
@@ -450,9 +495,32 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
             aria-controls="guided-tour-card"
             onClick={startGuidedTour}
           >RUN THE ATTACK DEMO</button>
+          <span className="live-intent-launcher">
+            <select
+              aria-label="Live intent scenario"
+              disabled={liveProgressIndex !== null}
+              value={liveScenarioId}
+              onChange={(event) => setLiveScenarioId(event.target.value as LiveScenarioId)}
+            >
+              {LIVE_SCENARIOS.map((scenario) => <option key={scenario.id} value={scenario.id}>{scenario.label}</option>)}
+            </select>
+            <button
+              type="button"
+              className="live-intent-trigger"
+              disabled={liveProgressIndex !== null}
+              onClick={() => void runLiveIntent()}
+            >RUN LIVE GPT-5.6 CHECK</button>
+          </span>
           {DEMO_LINKS.map((link) => <a key={link.href} href={link.href} target="_blank" rel="noreferrer">{link.label}</a>)}
         </nav>
       </section>}
+
+      {summary?.demo && (liveProgressIndex !== null || liveIntentResult !== null || liveIntentError !== null) && <LiveIntentPanel
+        error={liveIntentError}
+        progressIndex={liveProgressIndex}
+        result={liveIntentResult}
+        onRetry={() => void runLiveIntent()}
+      />}
 
       <section className="hero-strip">
         <div><span className="eyebrow">CONTROL ROOM / LIVE</span><h1>Mission Control</h1></div>
@@ -649,6 +717,7 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
 }) {
   const verdict = action.intent_verdict;
   const hijack = verdict?.verdict === "hijack_suspected";
+  const liveRun = isLiveRun(action);
   const rowStyle = { "--row-delay": `${Math.min(index, 12) * 35}ms` } as CSSProperties;
   return (
     <article
@@ -658,7 +727,7 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
     >
       <button className="action-summary" onClick={onToggle} aria-expanded={expanded}>
         <span className="status-pip" />
-        <span className="action-main"><strong>{actionLabel(action)}</strong><small>{action.counterparty} · agent #{action.agent_id}</small></span>
+        <span className="action-main"><strong>{actionLabel(action)}{liveRun && <span className="live-run-chip">LIVE RUN</span>}</strong><small>{action.counterparty} · agent #{action.agent_id}</small></span>
         <span className="action-amount">{formatMoney(action.amount)}</span>
         <span className="action-status" title={actionStatusTitle(action.status)}>{action.status.replaceAll("_", " ")}</span>
         <span className="chevron">{expanded ? "−" : "+"}</span>
@@ -685,6 +754,38 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
         </div>}
       </div>}
     </article>
+  );
+}
+
+function LiveIntentPanel({ error, progressIndex, result, onRetry }: {
+  error: string | null;
+  progressIndex: number | null;
+  result: LiveIntentResult | null;
+  onRetry: () => void;
+}) {
+  const unavailable = error !== null || result?.verdict === null;
+  return (
+    <section className={`live-intent-result ${unavailable ? "is-unavailable" : ""}`} aria-live="polite">
+      {progressIndex !== null && <div className="live-intent-progress" role="status">
+        <span>LIVE OPENAI</span>
+        <ol>{LIVE_INTENT_PROGRESS.map((label, index) => <li className={index === progressIndex ? "is-active" : index < progressIndex ? "is-complete" : ""} key={label}>{label}</li>)}</ol>
+      </div>}
+      {progressIndex === null && unavailable && <div className="live-intent-unavailable">
+        <div><strong>LIVE INTENT UNAVAILABLE — held for human review</strong><span>{error ?? result?.message}</span></div>
+        <button type="button" onClick={onRetry}>RETRY LIVE CHECK</button>
+      </div>}
+      {progressIndex === null && result && <div className="live-intent-output">
+        {result.verdict && <div className="live-intent-verdict"><span>{result.verdict.verdict.replaceAll("_", " ")}</span><strong>{result.verdict.confidence.toFixed(2)}</strong><p>{result.verdict.reasoning}</p></div>}
+        <div className="live-intent-provenance">
+          <strong>LIVE OPENAI</strong>
+          <span>{result.provenance.model}</span>
+          <span title={result.provenance.response_id ?? undefined}>response {truncateResponseId(result.provenance.response_id)}</span>
+          <span>{result.provenance.latency_ms} ms</span>
+          <time dateTime={result.provenance.timestamp}>{result.provenance.timestamp} UTC</time>
+          {result.cached && <small>CACHED RESULT · NO SECOND MODEL CALL</small>}
+        </div>
+      </div>}
+    </section>
   );
 }
 
