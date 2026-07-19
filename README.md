@@ -1,6 +1,30 @@
-# AgentGuard — the intelligent firewall for AI agents. It knows if your agent is still yours.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner.png">
+  <img src="docs/assets/brand.png" alt="AgentGuard — policy floor, GPT-5.6 intent firewall, and hash-chained ledger">
+</picture>
 
-**Live demo — start here:** [AgentGuard landing](https://agentguard-dusky.vercel.app) · [Mission Control console](https://agentguard-dusky.vercel.app/console) · [Run locally with Docker](#3-try-it-in-60-seconds)
+# AgentGuard
+
+**The firewall for AI agents. It knows if your agent is still yours.**
+
+## Live demo
+
+- **Landing:** https://agentguard-dusky.vercel.app
+- **Guided attack demo:** https://agentguard-dusky.vercel.app/console?demo=1
+- **Live GPT-5.6 run:** Judges can trigger a REAL GPT-5.6 intent evaluation from the console with `RUN LIVE GPT-5.6 CHECK`. Scenarios are locked and rate-limited to 6 runs per IP per hour. Evaluation fails closed and shows full provenance: model, response ID, latency, and UTC timestamp. The verdict becomes a real hash-chained ledger entry.
+- **Local run:** `docker compose up --build` — ready in about 60 seconds with no API key required.
+- **Note:** The free-tier backend may cold-start for approximately 30 seconds.
+
+## Guided attack demo
+
+1. Declare the procurement agent's mission: buy API credits from approved vendors within a €2,000 daily budget.
+2. Send a normal €200 payment to `openai.com`; policy and intent both allow it.
+3. Read a poisoned document containing an urgent instruction to change the beneficiary.
+4. Attempt a €5,000 transfer to `unknown-vendor.xyz`; the policy floor and intent firewall block the hijack.
+5. Request €300 in personal-use gift cards; numeric rules pass, but suspicious intent holds it for human approval.
+6. Verify the ledger and agent risk, then run the tamper test: corrupt a real entry via SQL — the chain catches it.
+
+**Live vs recorded.** Recorded verdicts are labeled `recorded run · reproducible in console`; live runs are labeled `LIVE OPENAI` with provenance. Live verdicts may differ from recorded ones — that is the point: the model is judging in real time.
 
 ## 1. The problem
 
@@ -26,7 +50,7 @@ Docker is the intended path. No `.env` file or OpenAI/OpenRouter key is required
 docker compose up --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the product story and live proof, then launch [Mission Control](http://localhost:3000/console). You will see:
+Open `http://localhost:3000` for the product story and live proof, then launch Mission Control at `http://localhost:3000/console`. You will see:
 
 1. Mission Control with the seeded agents and live KPI cards.
 2. A red `HIJACK SUSPECTED` payment event expanded in the action feed.
@@ -113,6 +137,8 @@ The demo agent also runs on GPT-5.6 in the optional live path. The no-key Compos
 ## 6. Security posture
 
 The fintech safety reviews are tracked in [`docs/reviews/`](docs/reviews/): [Phase 2](docs/reviews/2026-07-17-phase-2-policy-floor.md), [Phase 3](docs/reviews/2026-07-17-phase-3-ledger.md), [Phase 4](docs/reviews/2026-07-17-phase-4-mcp-approval.md), [Phase 5](docs/reviews/2026-07-17-phase-5-intent-firewall.md), and [Phase 6](docs/reviews/2026-07-17-phase-6-fintech-safety.md).
+
+Submission evidence: [final security audit](docs/reviews/2026-07-18-final-security-audit.md), [Phase 12 live-intent safety review](docs/reviews/2026-07-19-phase-12-live-intent.md), and [`docs/VERIFICATION.md`](docs/VERIFICATION.md).
 
 Accepted risks for this demo are deliberately visible:
 
