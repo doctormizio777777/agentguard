@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { AgentGuardMark } from "./agentguard-mark";
 import { HeroVerdictCard, IntentComparison } from "./landing-interactions";
+import { LayerDiagram } from "./layer-diagram";
 import { LiveProofStrip } from "./live-proof-strip";
 
 
@@ -43,12 +44,28 @@ export default function LandingPage() {
         <HeroVerdictCard />
       </section>
 
-      <section className="landing-proof-section" data-section="live-proof" aria-label="Live system proof">
-        <LiveProofStrip />
+      <section className="landing-section landing-layer" data-section="layer">
+        <div className="landing-section-index"><span>01</span><small>THE LAYER</small></div>
+        <div className="landing-section-body">
+          <header className="landing-section-heading">
+            <span>MISSION-AWARE CONTROL PLANE</span>
+            <h2>One layer between your agent and everything it can touch.</h2>
+            <p>Every high-risk action — payments, email, data, APIs, shell — is judged against the mission before it executes.</p>
+          </header>
+          <LayerDiagram />
+        </div>
+      </section>
+
+      <section className="landing-section landing-signature" data-section="signature">
+        <div className="landing-section-index"><span>02</span><small>THE BLIND SPOT</small></div>
+        <div className="landing-section-body">
+          <header className="landing-section-heading"><span>THE ATTACK RULES CAN&apos;T SEE</span><h2>Rules see numbers. The firewall reads intent.</h2></header>
+          <IntentComparison />
+        </div>
       </section>
 
       <section className="landing-section landing-problem" data-section="problem">
-        <div className="landing-section-index"><span>01</span><small>THE FAILURE MODE</small></div>
+        <div className="landing-section-index"><span>03</span><small>THE FAILURE MODE</small></div>
         <div className="landing-problem-copy">
           <h2>Your agent follows instructions. All of them.</h2>
           <div className="landing-problem-lines">
@@ -63,8 +80,12 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="landing-proof-section" data-section="live-proof" aria-label="Live system proof">
+        <LiveProofStrip />
+      </section>
+
       <section className="landing-section" data-section="two-judges">
-        <div className="landing-section-index"><span>02</span><small>HOW IT WORKS</small></div>
+        <div className="landing-section-index"><span>04</span><small>HOW IT WORKS</small></div>
         <div className="landing-section-body">
           <header className="landing-section-heading"><span>THE TWO JUDGES</span><h2>Every action has to clear policy and intent.</h2></header>
           <div className="landing-judge-grid">
@@ -75,16 +96,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="landing-section landing-signature" data-section="signature">
-        <div className="landing-section-index"><span>03</span><small>THE BLIND SPOT</small></div>
-        <div className="landing-section-body">
-          <header className="landing-section-heading"><span>THE ATTACK RULES CAN&apos;T SEE</span><h2>Rules see numbers. The firewall reads intent.</h2></header>
-          <IntentComparison />
-        </div>
-      </section>
-
       <section className="landing-section" data-section="comparison">
-        <div className="landing-section-index"><span>04</span><small>POSITIONING</small></div>
+        <div className="landing-section-index"><span>05</span><small>POSITIONING</small></div>
         <div className="landing-section-body">
           <header className="landing-section-heading"><span>HONEST COMPARISON</span><h2>Controls compose. Intent is the missing layer.</h2></header>
           <div className="landing-table-wrap">
@@ -99,7 +112,7 @@ export default function LandingPage() {
       </section>
 
       <section className="landing-section" data-section="verification">
-        <div className="landing-section-index"><span>05</span><small>OPEN EVIDENCE</small></div>
+        <div className="landing-section-index"><span>06</span><small>OPEN EVIDENCE</small></div>
         <div className="landing-section-body">
           <header className="landing-section-heading"><span>VERIFY, DON&apos;T TRUST</span><h2>Every core claim is reproducible.</h2></header>
           <div className="landing-proof-links">

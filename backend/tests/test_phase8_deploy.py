@@ -99,10 +99,12 @@ def test_deploy_guide_covers_required_order_settings_and_verification() -> None:
 def test_readme_lists_live_landing_before_console_and_local_option() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    landing = readme.index("[AgentGuard landing](https://agentguard-dusky.vercel.app)")
-    console = readme.index("[Mission Control console](https://agentguard-dusky.vercel.app/console)")
-    assert landing < console
-    assert "[Run locally with Docker](#3-try-it-in-60-seconds)" in readme
+    landing = readme.index("**Landing:** https://agentguard-dusky.vercel.app")
+    console = readme.index(
+        "**Guided attack demo:** https://agentguard-dusky.vercel.app/console?demo=1"
+    )
+    local = readme.index("**Local run:** `docker compose up --build`")
+    assert landing < console < local
 
 
 def test_backend_example_lists_public_demo_settings_without_a_real_secret() -> None:

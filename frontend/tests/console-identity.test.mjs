@@ -10,7 +10,10 @@ const APP_DIR = join(TEST_DIR, "..", "app");
 const css = readFileSync(join(APP_DIR, "globals.css"), "utf8");
 const consoleSource = readFileSync(join(APP_DIR, "mission-control.tsx"), "utf8");
 const identityMarker = "/* Phase 10.11: console control-room identity */";
-const identityBlock = css.includes(identityMarker) ? css.slice(css.indexOf(identityMarker)) : "";
+const elevationMarker = "/* Phase 12.5: AgentGuard as the layer between agents and execution */";
+const identityBlock = css.includes(identityMarker)
+  ? css.slice(css.indexOf(identityMarker), css.indexOf(elevationMarker))
+  : "";
 
 
 test("console uses a scoped twenty-four pixel technical grid", () => {

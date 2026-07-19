@@ -11,14 +11,15 @@ const APP_DIR = join(FRONTEND_DIR, "app");
 const REPO_DIR = join(FRONTEND_DIR, "..");
 
 
-test("the landing page renders all eight sections in the prescribed order", () => {
+test("the landing page renders all nine sections in the prescribed order", () => {
   const page = readFileSync(join(APP_DIR, "page.tsx"), "utf8");
   const markers = [
     'data-section="hero"',
-    'data-section="live-proof"',
-    'data-section="problem"',
-    'data-section="two-judges"',
+    'data-section="layer"',
     'data-section="signature"',
+    'data-section="problem"',
+    'data-section="live-proof"',
+    'data-section="two-judges"',
     'data-section="comparison"',
     'data-section="verification"',
     'data-section="built-with"',
@@ -115,5 +116,5 @@ test("README introduces the landing page before the console", () => {
 
   assert.ok(landing >= 0);
   assert.ok(console > landing);
-  assert.match(readme, /start here/i);
+  assert.match(readme, /## Live demo/);
 });

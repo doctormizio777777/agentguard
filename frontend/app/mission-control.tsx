@@ -101,6 +101,23 @@ function actionLabel(action: Action): string {
   return action.action_type.replaceAll("_", " ");
 }
 
+function actionTypeGlyph(actionType: string): string {
+  const glyphs: Record<string, string> = {
+    payment: "PAY",
+    email_send: "MAIL",
+    data_delete: "DATA",
+    data_export: "DATA",
+    external_api_call: "API",
+    system_command: "SHELL",
+  };
+  return glyphs[actionType] ?? "ACT";
+}
+
+function actionVerdictLabel(status: Action["status"]): string {
+  if (status === "pending_approval") return "HELD";
+  return status.toUpperCase();
+}
+
 function isLiveRun(action: Action): boolean {
   const metadata = action.payload.metadata;
   return typeof metadata === "object" && metadata !== null && (metadata as { live_run?: unknown }).live_run === true;
@@ -569,9 +586,9 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
                 className={`approval-item ${tourHighlight?.kind === "approval" && tourHighlight.actionId === action.id ? `guided-focus guided-focus-${tourHighlight.tone}` : ""}`}
                 key={action.id}
               >
-                <div className="approval-title"><strong>{actionLabel(action)}</strong><span>{formatMoney(action.amount)}</span></div>
-                <p>{action.counterparty}</p>
-                <small>Action #{action.id} · {timeAgo(action.created_at)}</small>
+                <div className="approval-title"><strong className="approval-kind">{actionLabel(action)}</strong><span className="approval-amount">{formatMoney(action.amount)}</span></div>
+                <p className="approval-counterparty">{action.counterparty}</p>
+                <small className="approval-meta">Action #{action.id} · {timeAgo(action.created_at)}</small>
                 {tourHighlight?.kind === "approval" && tourHighlight.actionId === action.id && <span className="guided-approval-hint">now approve or reject it yourself →</span>}
                 <div className="approval-actions">
                   <button className="approve-button" disabled={busy.has(action.id)} onClick={() => void transition(action.id, "approve")}>APPROVE</button>
@@ -727,9 +744,14 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
     >
       <button className="action-summary" onClick={onToggle} aria-expanded={expanded}>
         <span className="status-pip" />
-        <span className="action-main"><strong>{actionLabel(action)}{liveRun && <span className="live-run-chip">LIVE RUN</span>}</strong><small>{action.counterparty} · agent #{action.agent_id}</small></span>
+        <span className="action-type-glyph">{actionTypeGlyph(action.action_type)}</span>
+        <span className="action-main">
+          <strong>{actionLabel(action)}{liveRun && <span className="live-run-chip">LIVE RUN</span>}</strong>
+          <small>{action.counterparty}</small>
+          <span className="action-meta">Action #{action.id} · agent #{action.agent_id} · {timeAgo(action.created_at)}</span>
+        </span>
         <span className="action-amount">{formatMoney(action.amount)}</span>
-        <span className="action-status" title={actionStatusTitle(action.status)}>{action.status.replaceAll("_", " ")}</span>
+        <span className="action-verdict-chip" title={actionStatusTitle(action.status)}>{actionVerdictLabel(action.status)}</span>
         <span className="chevron">{expanded ? "−" : "+"}</span>
       </button>
 
@@ -742,11 +764,20 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
           <blockquote>{verdict.reasoning}</blockquote>
           <p className="mission-quote"><span>DECLARED MISSION</span>“{action.mission_text ?? "No active mission"}”</p>
         </div>}
-        <div className="detail-grid">
-          <div><span>POLICY REASONS</span><p>{action.reasons.length ? action.reasons.join(" · ") : "No policy exceptions"}</p></div>
-          {!hijack && <div><span>MISSION</span><p>{action.mission_text ?? "No active mission"}</p></div>}
-          <div><span>INTENT VERDICT</span><p>{verdict ? `${verdict.verdict} · ${displayIntentModel(verdict.model ?? action.intent_model)}` : "unavailable"}</p></div>
-          <div><span>TIME</span><p className="data-value">{timeAgo(action.created_at)} · {action.created_at} UTC</p></div>
+        <div className="detail-grid evidence-grid">
+          <div className="evidence-block evidence-policy">
+            <span>POLICY REASONS</span>
+            {action.reasons.length
+              ? <ul>{action.reasons.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+              : <p>No policy exceptions</p>}
+          </div>
+          <div className="evidence-block evidence-intent">
+            <span>INTENT VERDICT</span>
+            <p>{verdict ? `${verdict.verdict} · ${displayIntentModel(verdict.model ?? action.intent_model)}` : "unavailable"}</p>
+            {verdict?.reasoning && <small className="evidence-reasoning">{verdict.reasoning}</small>}
+          </div>
+          {!hijack && <div className="evidence-meta-block"><span>MISSION</span><p>{action.mission_text ?? "No active mission"}</p></div>}
+          <div className="evidence-meta-block"><span>TIME</span><p className="data-value">{timeAgo(action.created_at)} · {action.created_at} UTC</p></div>
         </div>
         {action.status === "pending_approval" && <div className="inline-actions">
           <button className="approve-button" disabled={busy} onClick={() => void onTransition(action.id, "approve")}>APPROVE</button>

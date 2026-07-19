@@ -36,7 +36,7 @@ export function HeroVerdictCard() {
       type="button"
     >
       <div className="landing-threat-topline">
-        <span><i />{evidence.intentLabel}</span>
+        <span className="landing-intent-badge"><i />{evidence.intentLabel}</span>
         <small>{RECORDED_RUN_LABEL}</small>
       </div>
       <div className="landing-threat-action">
@@ -46,7 +46,7 @@ export function HeroVerdictCard() {
         </div>
         <strong>{evidence.amount}</strong>
       </div>
-      <p className="landing-threat-payload">Payload: “{evidence.payload}”</p>
+      <p className="landing-threat-payload">Payload: “{evidence.payload}”<span className="landing-terminal-cursor" aria-hidden="true" /></p>
       <div className="landing-hero-policy-trace">
         <span>// policy reasons</span>
         {evidence.vendorContext.split(" · ").map((reason) => <span key={reason}>{reason} ✓</span>)}
@@ -107,7 +107,7 @@ export function IntentComparison() {
   const evaluationComplete = visibleLineCount >= traceLines.length;
 
   return (
-    <div className="landing-attack-widget">
+    <div className={`landing-attack-widget ${activeCase.id === "betrayal" ? "is-betrayal" : ""}`}>
       <div className="landing-attack-chips" aria-label="Attack payloads">
         {ATTACK_CASES.map((attackCase) => (
           <button
