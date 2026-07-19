@@ -59,11 +59,14 @@ type TamperResponse = {
   verification: LedgerVerification;
   detail?: string;
 };
+type GuidedTourSpotlightTone = GuidedTourTone | "ok";
 type GuidedTourHighlight = {
   kind: "agent" | "action" | "approval" | "evidence" | "tamper";
-  tone: GuidedTourTone;
+  tone: GuidedTourSpotlightTone;
   actionId?: number;
 };
+
+const TOUR_SPOTLIGHT_TONES = ["info", "ok", "warn", "danger", "warn", "info"] as const;
 
 function formatMoney(value: number | string | null): string {
   if (value === null) return "—";
@@ -108,6 +111,8 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const [tourComplete, setTourComplete] = useState(false);
   const [tourBusy, setTourBusy] = useState(false);
   const [tourError, setTourError] = useState<string | null>(null);
+  const [initialTourWarming, setInitialTourWarming] = useState(initialDemoOpen);
+  const [tourClosing, setTourClosing] = useState(false);
   const [tourHighlight, setTourHighlight] = useState<GuidedTourHighlight | null>(null);
   const [tamperVerification, setTamperVerification] = useState<LedgerVerification | null>(null);
   const [tamperBusy, setTamperBusy] = useState<"tamper" | "restore" | null>(null);
@@ -115,6 +120,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const [, setClockTick] = useState(0);
   const knownActionIds = useRef<Set<number> | null>(null);
   const highlightTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tourCloseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialTourStarted = useRef(false);
   const lastScenarioActionId = useRef<number | null>(null);
   const tourSession = useRef(0);
@@ -193,6 +199,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
 
   useEffect(() => () => {
     if (highlightTimeout.current) clearTimeout(highlightTimeout.current);
+    if (tourCloseTimeout.current) clearTimeout(tourCloseTimeout.current);
   }, []);
 
   const transition = async (id: number, verb: "approve" | "reject") => {
@@ -214,28 +221,35 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
 
   const exitGuidedTour = useCallback(() => {
     tourSession.current += 1;
-    setGuidedTourOpen(false);
+    initialTourStarted.current = true;
     setTourBusy(false);
     setTourError(null);
-    setTourHighlight(null);
+    setTourClosing(true);
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (tourCloseTimeout.current) clearTimeout(tourCloseTimeout.current);
+    tourCloseTimeout.current = setTimeout(() => {
+      setGuidedTourOpen(false);
+      setTourHighlight(null);
+      setTourClosing(false);
+    }, reducedMotion ? 0 : 250);
   }, []);
 
   const focusTourTarget = useCallback((step: number, result: ScenarioStepResult) => {
-    const metadata = GUIDED_TOUR_STEPS[step];
+    const tone = TOUR_SPOTLIGHT_TONES[step];
     let highlight: GuidedTourHighlight;
     let targetId: string;
 
     if (step === 0) {
-      highlight = { kind: "agent", tone: metadata.tone };
+      highlight = { kind: "agent", tone };
       targetId = "tour-agent-procurement";
     } else if (step === 1) {
       const actionId = result.action?.id;
       if (actionId) lastScenarioActionId.current = actionId;
-      highlight = { kind: "action", tone: metadata.tone, actionId };
+      highlight = { kind: "action", tone, actionId };
       targetId = actionId ? `action-${actionId}` : "feed-panel";
     } else if (step === 2) {
       const actionId = lastScenarioActionId.current ?? undefined;
-      highlight = { kind: "action", tone: metadata.tone, actionId };
+      highlight = { kind: "action", tone, actionId };
       targetId = actionId ? `action-${actionId}` : "feed-panel";
     } else if (step === 3) {
       const actionId = result.action?.id;
@@ -243,22 +257,36 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
         lastScenarioActionId.current = actionId;
         setExpanded((current) => new Set(current).add(actionId));
       }
-      highlight = { kind: "action", tone: metadata.tone, actionId };
-      targetId = actionId ? `action-${actionId}` : "feed-panel";
+      highlight = { kind: "action", tone, actionId };
+      targetId = actionId ? `action-${actionId}-hijack` : "feed-panel";
     } else if (step === 4) {
       const actionId = result.action?.id;
       if (actionId) lastScenarioActionId.current = actionId;
-      highlight = { kind: "approval", tone: metadata.tone, actionId };
+      highlight = { kind: "approval", tone, actionId };
       targetId = actionId ? `approval-${actionId}` : "approval-panel";
     } else {
-      highlight = { kind: "evidence", tone: metadata.tone };
+      highlight = { kind: "evidence", tone };
       targetId = "audit-panel";
     }
 
     setTourHighlight(highlight);
     setTimeout(() => {
       const target = document.getElementById(targetId) ?? document.getElementById("agents-panel");
-      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (!target) return;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView(reducedMotion
+        ? { behavior: "auto", block: "center" }
+        : { behavior: "smooth", block: "center" });
+      setTimeout(() => {
+        const card = document.getElementById("guided-tour-card");
+        if (!card) return;
+        const targetRect = target.getBoundingClientRect();
+        const cardRect = card.getBoundingClientRect();
+        const overlap = targetRect.bottom + 18 - cardRect.top;
+        if (overlap > 0) {
+          window.scrollBy({ top: overlap, behavior: reducedMotion ? "auto" : "smooth" });
+        }
+      }, reducedMotion ? 0 : 420);
     }, 80);
   }, []);
 
@@ -289,7 +317,10 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const startGuidedTour = useCallback(() => {
     const sessionId = tourSession.current + 1;
     tourSession.current = sessionId;
+    if (tourCloseTimeout.current) clearTimeout(tourCloseTimeout.current);
     setGuidedTourOpen(true);
+    setInitialTourWarming(false);
+    setTourClosing(false);
     setTourStepIndex(0);
     setTourComplete(false);
     setTourError(null);
@@ -313,27 +344,33 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
 
   const focusTamperWidget = useCallback(() => {
     setGuidedTourOpen(false);
-    setTourHighlight({ kind: "tamper", tone: "danger" });
+    setTourHighlight({ kind: "tamper", tone: "warn" });
     setTimeout(() => {
       document.getElementById("audit-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 80);
   }, []);
 
   useEffect(() => {
-    if (initialDemoOpen && !initialTourStarted.current) {
+    if (initialDemoOpen && summary !== null && !initialTourStarted.current) {
       initialTourStarted.current = true;
       startGuidedTour();
     }
-  }, [initialDemoOpen, startGuidedTour]);
+  }, [initialDemoOpen, startGuidedTour, summary]);
 
   useEffect(() => {
     if (!guidedTourOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") exitGuidedTour();
+      const target = event.target as HTMLElement | null;
+      const interactiveTarget = target?.closest("button,a,input,textarea,select");
+      if (event.key === "Enter" && !event.repeat && !interactiveTarget && !initialTourWarming && !tourComplete) {
+        event.preventDefault();
+        advanceGuidedTour();
+      }
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [exitGuidedTour, guidedTourOpen]);
+  }, [advanceGuidedTour, exitGuidedTour, guidedTourOpen, initialTourWarming, tourComplete]);
 
   const runTamperTest = async () => {
     setTamperBusy("tamper");
@@ -486,7 +523,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
 
           <section
             id="audit-panel"
-            className={`panel audit-panel ${chainBroken ? "audit-panel-danger" : ""} ${tourHighlight?.kind === "evidence" || tourHighlight?.kind === "tamper" ? `guided-focus guided-focus-${tourHighlight.tone}` : ""}`}
+            className={`panel audit-panel ${chainBroken ? "audit-panel-danger" : ""} ${tourHighlight?.kind === "evidence" || tourHighlight?.kind === "tamper" ? `guided-focus guided-focus-${tourHighlight.tone}` : ""} ${tourHighlight?.kind === "tamper" ? "guided-tamper-pulse" : ""}`}
           >
             <PanelHeading eyebrow="INTEGRITY MONITOR" title="Audit Chain" count={summary ? `${summary.ledger.entries} ENTRIES` : "—"} />
             <div className="chain-status">
@@ -507,17 +544,32 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
       {actions.some((action) => action.intent_verdict?.verdict === "hijack_suspected") && <div className="threat-footnote">Threat response active: hijack verdict remains blocked pending investigation.</div>}
 
       {guidedTourOpen && <>
-        <div className="guided-tour-scrim" aria-hidden="true" />
+        <div className={`guided-tour-scrim ${tourClosing ? "is-exiting" : ""}`} aria-hidden="true" />
         <aside
           id="guided-tour-card"
-          className={`guided-tour-card guided-tour-${tourComplete ? "complete" : tourStep.tone}`}
+          className={`guided-tour-card ${tourClosing ? "is-exiting" : ""}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="guided-tour-title"
           aria-live="polite"
         >
-          {!tourComplete ? <>
-            <span className="guided-tour-counter">STEP {tourStepIndex + 1} / 6</span>
+          <div className="guided-tour-meta">
+            {initialTourWarming
+              ? <span className="guided-tour-counter">GUIDED TOUR / LIVE SYSTEM</span>
+              : tourComplete
+                ? <span className="guided-tour-counter">TOUR COMPLETE</span>
+                : <span className="guided-tour-counter">STEP {tourStepIndex + 1} / 6</span>}
+            <button type="button" className="guided-tour-exit" onClick={exitGuidedTour}>EXIT TOUR</button>
+          </div>
+          {initialTourWarming && summary === null ? <>
+            <h2 id="guided-tour-title">warming up the live system…</h2>
+            <p>The public backend is waking from its free-tier sleep. The tour will start automatically as soon as live dashboard data arrives.</p>
+            <div className="guided-tour-warming" role="status"><i className="guided-tour-spinner" aria-hidden="true" />CONNECTING TO MISSION CONTROL</div>
+            {error && <div className="guided-tour-error" role="alert">
+              <span>{error}</span>
+              <button type="button" onClick={() => void refresh()}>RETRY CONNECTION</button>
+            </div>}
+          </> : !tourComplete ? <>
             <h2 id="guided-tour-title">{tourStep.title}</h2>
             <p>{tourStep.narration}</p>
             {tourBusy && <div className="guided-tour-progress">STAGING SCENARIO STEP {tourStep.scenarioStep}…</div>}
@@ -526,13 +578,14 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
               <button type="button" onClick={retryGuidedTourStep}>RETRY STEP</button>
             </div>}
             <div className="guided-tour-actions">
-              {!tourError && <button type="button" className="guided-tour-next" disabled={tourBusy} onClick={advanceGuidedTour}>NEXT →</button>}
-              <button type="button" className="guided-tour-exit" onClick={exitGuidedTour}>EXIT TOUR</button>
+              {!tourError && (tourStepIndex === GUIDED_TOUR_STEPS.length - 1
+                ? <button type="button" className="guided-tour-next" disabled={tourBusy} onClick={advanceGuidedTour}>FINISH</button>
+                : <button type="button" className="guided-tour-next" disabled={tourBusy} onClick={advanceGuidedTour}>NEXT →</button>)}
             </div>
           </> : <>
-            <span className="guided-tour-counter">6 / 6 COMPLETE</span>
-            <h2 id="guided-tour-title">TOUR COMPLETE — now break something yourself</h2>
-            <p>The scenario stays on screen. Test the real ledger integrity control or replay the six-step incident.</p>
+            <span className="sr-only">TOUR COMPLETE — now break something yourself</span>
+            <h2 id="guided-tour-title">Now break something yourself</h2>
+            <p>The incident is preserved below. Test the real ledger integrity control or replay the six-step tour.</p>
             <div className="guided-tour-actions guided-tour-complete-actions">
               <button type="button" className="guided-tour-tamper" onClick={focusTamperWidget}>TAMPER THE LEDGER</button>
               <button type="button" className="guided-tour-restart" onClick={startGuidedTour}>RESTART TOUR</button>
@@ -590,7 +643,7 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
   busy: boolean;
   index: number;
   isNew: boolean;
-  guidedTone?: GuidedTourTone;
+  guidedTone?: GuidedTourSpotlightTone;
   onToggle: () => void;
   onTransition: (id: number, verb: "approve" | "reject") => Promise<void>;
 }) {
@@ -600,7 +653,7 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
   return (
     <article
       id={`action-${action.id}`}
-      className={`action-row status-${action.status} ${hijack ? "hijack-row" : ""} ${isNew ? "new-row" : "feed-entry"} ${guidedTone ? `guided-focus guided-focus-${guidedTone}` : ""}`}
+      className={`action-row status-${action.status} ${hijack ? "hijack-row" : ""} ${isNew ? "new-row" : "feed-entry"} ${guidedTone && !hijack ? `guided-focus guided-focus-${guidedTone}` : ""}`}
       style={rowStyle}
     >
       <button className="action-summary" onClick={onToggle} aria-expanded={expanded}>
@@ -612,7 +665,7 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
       </button>
 
       {expanded && <div className="action-detail">
-        {hijack && verdict && <div className="hijack-alert">
+        {hijack && verdict && <div id={`action-${action.id}-hijack`} className={`hijack-alert ${guidedTone ? `guided-focus guided-focus-${guidedTone}` : ""}`}>
           <div className="threat-heading">
             <div className="threat-label"><span>HIJACK SUSPECTED</span><b className="model-chip">{displayIntentModel(verdict.model ?? action.intent_model)}</b></div>
             <div className="confidence-stat"><small>CONFIDENCE</small><strong>{verdict.confidence.toFixed(2)}</strong></div>
@@ -635,7 +688,7 @@ function ActionRow({ action, expanded, busy, index, isNew, guidedTone, onToggle,
   );
 }
 
-function AgentRisk({ agent, guidedTone }: { agent: Agent; guidedTone?: GuidedTourTone }) {
+function AgentRisk({ agent, guidedTone }: { agent: Agent; guidedTone?: GuidedTourSpotlightTone }) {
   const tone = agent.risk_score >= 70 ? "high" : agent.risk_score >= 35 ? "medium" : "low";
   const riskStyle = { "--risk-width": `${agent.risk_score}%` } as CSSProperties;
   return (

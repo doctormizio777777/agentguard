@@ -23,7 +23,7 @@
   --canvas-gradient:radial-gradient(circle at 48% -18%,rgba(63,91,131,.18),transparent 44%),linear-gradient(180deg,#0d1118,#0b0e14 42%);
   --inner-highlight:rgba(255,255,255,.035);
   --new-row-bg:rgba(117,170,255,.13);
-  --guided-scrim:rgba(3,5,9,.68);
+  --guided-scrim:rgba(6,8,14,.62);
   --guided-shadow:rgba(0,0,0,.48);
   --guided-focus-glow:rgba(117,170,255,.38);
   --landing-grid:linear-gradient(rgba(117,170,255,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(117,170,255,.028) 1px,transparent 1px);
@@ -316,30 +316,36 @@ button { font: inherit; }
 .risk-tick-high { left:66%; }
 .agent-risk-head b { font-size:20px; font-weight:700; letter-spacing:-.03em; }
 
-.guided-tour-scrim { position:fixed; z-index:40; inset:0; background:var(--guided-scrim); opacity:.6; pointer-events:auto; animation:guided-scrim-in var(--dur-state) var(--ease) both; }
-.guided-tour-card { --guided-tour-tone:var(--accent); position:fixed; z-index:60; left:50%; bottom:24px; width:min(620px,calc(100vw - 32px)); padding:22px 24px; border:1px solid var(--guided-tour-tone); background:linear-gradient(145deg,var(--surface-raised),var(--surface) 72%); box-shadow:inset 0 1px 0 var(--inner-highlight),0 24px 70px var(--guided-shadow),0 0 28px color-mix(in srgb,var(--guided-tour-tone) 20%,transparent); transform:translateX(-50%); animation:guided-card-in var(--dur-state) var(--ease) both; }
-.guided-tour-danger { --guided-tour-tone:var(--danger); }
-.guided-tour-warn { --guided-tour-tone:var(--warn); }
-.guided-tour-complete { --guided-tour-tone:var(--ok); }
-.guided-tour-counter { display:block; margin-bottom:9px; color:var(--guided-tour-tone); font-size:9px; font-weight:800; letter-spacing:.16em; }
+.guided-tour-scrim { position:fixed; z-index:40; inset:0; background:var(--guided-scrim); opacity:1; pointer-events:auto; animation:guided-scrim-in var(--dur-state) var(--ease) both; }
+.guided-tour-card { position:fixed; z-index:60; left:50%; bottom:24px; width:min(560px,94vw); max-height:calc(100svh - 32px); overflow-y:auto; padding:22px 24px; border:1px solid var(--accent); border-radius:10px; background:linear-gradient(145deg,var(--surface-raised),var(--surface) 72%); box-shadow:inset 0 1px 0 var(--inner-highlight),0 24px 70px var(--guided-shadow),0 0 28px color-mix(in srgb,var(--accent) 20%,transparent); transform:translateX(-50%); animation:guided-card-in var(--dur-state) var(--ease) both; }
+.guided-tour-scrim.is-exiting { animation:guided-scrim-out var(--dur-state) var(--ease) both; }
+.guided-tour-card.is-exiting { animation:guided-card-out var(--dur-state) var(--ease) both; }
+.guided-tour-meta { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; }
+.guided-tour-counter { display:block; color:var(--accent); font-size:9px; font-weight:800; letter-spacing:.16em; }
+.guided-tour-exit { min-height:36px; padding:0; border:0; background:transparent; color:var(--text-dim); font-size:9px; font-weight:800; letter-spacing:.11em; cursor:pointer; }
+.guided-tour-exit::after { content:" \2715"; }
 .guided-tour-card h2 { margin:0; color:var(--text); font-size:21px; letter-spacing:-.025em; line-height:1.2; }
 .guided-tour-card>p { max-width:560px; margin:11px 0 0; color:var(--text-dim); font-size:13px; line-height:1.65; }
-.guided-tour-progress { margin-top:14px; color:var(--guided-tour-tone); font-size:9px; font-weight:700; letter-spacing:.11em; }
+.guided-tour-progress { margin-top:14px; color:var(--accent); font-size:9px; font-weight:700; letter-spacing:.11em; }
+.guided-tour-warming { display:flex; align-items:center; gap:9px; margin-top:16px; color:var(--accent); font-size:9px; font-weight:700; letter-spacing:.11em; }
+.guided-tour-spinner { width:14px; height:14px; border:2px solid var(--accent-muted); border-top-color:var(--accent); border-radius:50%; animation:guided-spinner calc(var(--dur-state) * 3) linear infinite; }
 .guided-tour-error { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:15px; padding:10px 12px; border:1px solid var(--danger); background:var(--danger-bg); color:var(--danger); font-size:10px; line-height:1.45; }
 .guided-tour-error button { flex:0 0 auto; padding:7px 9px; border:1px solid var(--danger); background:transparent; color:var(--danger); font-size:9px; font-weight:800; letter-spacing:.09em; cursor:pointer; }
-.guided-tour-actions { display:flex; align-items:center; gap:9px; margin-top:18px; }
+.guided-tour-actions { display:flex; align-items:center; justify-content:flex-end; gap:9px; margin-top:18px; }
 .guided-tour-actions button { min-height:36px; padding:0 13px; border:1px solid var(--border-strong); background:transparent; color:var(--text); font-size:9px; font-weight:800; letter-spacing:.11em; cursor:pointer; transition:border-color var(--dur-micro) var(--ease),transform var(--dur-micro) var(--ease); }
-.guided-tour-actions .guided-tour-next { border-color:var(--guided-tour-tone); background:var(--guided-tour-tone); color:var(--bg); }
-.guided-tour-actions .guided-tour-exit { color:var(--text-dim); }
-.guided-tour-actions .guided-tour-tamper { border-color:var(--danger); background:var(--danger); color:var(--bg); }
-.guided-tour-actions .guided-tour-restart { border-color:var(--accent); color:var(--accent); }
+.guided-tour-actions .guided-tour-next { border-color:var(--accent); background:var(--accent); color:var(--bg); }
+.guided-tour-actions .guided-tour-tamper { border-color:var(--warn); color:var(--warn); }
+.guided-tour-actions .guided-tour-restart { border-color:var(--accent); background:var(--accent); color:var(--bg); }
 .guided-tour-actions button:hover:not(:disabled),.guided-tour-error button:hover { border-color:color-mix(in srgb,currentColor 72%,var(--text)); transform:translateY(-1px); }
 .guided-tour-actions button:disabled { cursor:wait; opacity:.48; }
-.guided-tour-actions button:focus-visible,.guided-tour-error button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-.guided-focus { --guided-focus-tone:var(--accent); position:relative!important; z-index:50!important; outline:2px solid var(--guided-focus-tone); outline-offset:3px; animation:guided-focus-in var(--dur-state) var(--ease) both!important; }
+.guided-tour-actions button:focus-visible,.guided-tour-exit:focus-visible,.guided-tour-error button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.guided-focus { --guided-focus-tone:var(--accent); position:relative!important; z-index:50!important; outline:2px solid var(--guided-focus-tone); outline-offset:3px; box-shadow:0 0 0 1px var(--guided-focus-tone),0 0 24px color-mix(in srgb,var(--guided-focus-tone) 32%,transparent)!important; transition:outline-color var(--dur-state) var(--ease),box-shadow var(--dur-state) var(--ease); animation:guided-focus-in var(--dur-state) var(--ease) both!important; }
 .guided-focus-info { --guided-focus-tone:var(--accent); }
+.guided-focus-ok { --guided-focus-tone:var(--ok); }
 .guided-focus-danger { --guided-focus-tone:var(--danger); }
 .guided-focus-warn { --guided-focus-tone:var(--warn); }
+.guided-focus.guided-tamper-pulse { animation:guided-tamper-pulse calc(var(--dur-state) * 2) var(--ease) 2!important; }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; clip-path:inset(50%); }
 
 .landing-tamper-line { margin:18px 0 10px; color:var(--text-dim); font-size:12px; line-height:1.6; }
 .landing-tamper-line a { color:var(--accent); font-weight:700; text-decoration:none; }
@@ -392,9 +398,13 @@ button { font: inherit; }
 @keyframes feed-enter { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:translateY(0); } }
 @keyframes new-row-enter { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
 @keyframes risk-fill-in { from { transform:scaleX(0); } to { transform:scaleX(1); } }
-@keyframes guided-scrim-in { from { opacity:0; } to { opacity:.6; } }
+@keyframes guided-scrim-in { from { opacity:0; } to { opacity:1; } }
 @keyframes guided-card-in { from { opacity:0; transform:translate(-50%,12px); } to { opacity:1; transform:translate(-50%,0); } }
+@keyframes guided-card-out { from { opacity:1; transform:translate(-50%,0); } to { opacity:0; transform:translate(-50%,12px); } }
+@keyframes guided-scrim-out { from { opacity:1; } to { opacity:0; } }
+@keyframes guided-spinner { to { transform:rotate(360deg); } }
 @keyframes guided-focus-in { from { box-shadow:0 0 0 0 transparent; } to { box-shadow:0 0 0 1px var(--guided-focus-tone),0 0 18px color-mix(in srgb,var(--guided-focus-tone) 24%,transparent); } }
+@keyframes guided-tamper-pulse { 0%,100% { outline-offset:3px; } 50% { outline-offset:8px; } }
 
 @media (max-width:1020px) {
   .hijack-row .detail-grid { grid-template-columns:1fr 1fr; }
@@ -415,20 +425,27 @@ button { font: inherit; }
   .hijack-alert blockquote { font-size:15px; }
   .hijack-row .action-detail { padding-left:15px; }
   .hijack-row .detail-grid { grid-template-columns:1fr; }
-  .guided-tour-card { bottom:10px; width:calc(100vw - 20px); padding:18px; }
+  .guided-tour-card { left:0; bottom:0; width:100%; max-width:none; max-height:calc(100svh - 8px); padding:18px max(16px,env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left)); border-radius:10px 10px 0 0; transform:none; }
   .guided-tour-card h2 { font-size:18px; }
   .guided-tour-card>p { font-size:12px; line-height:1.55; }
   .guided-tour-actions { align-items:stretch; flex-direction:column; }
   .guided-tour-actions button { width:100%; }
+  .guided-tour-exit { min-width:88px; min-height:44px; }
   .guided-tour-error { align-items:stretch; flex-direction:column; }
+  @keyframes guided-card-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
+  @keyframes guided-card-out { from { opacity:1; transform:none; } to { opacity:0; transform:translateY(12px); } }
 }
 @media (prefers-reduced-motion:reduce) {
   :root { --dur-micro:0ms; --dur-state:0ms; --dur-reveal:0ms; }
   *,*::before,*::after { scroll-behavior:auto!important; animation:none!important; transition-duration:0ms!important; }
   .motion-ready .motion-reveal,.motion-ready .motion-reveal.is-revealed,.feed-entry,.new-row { opacity:1!important; transform:none!important; }
   .risk-fill { transform:none!important; }
-  .guided-tour-scrim { opacity:.6!important; }
+  .guided-tour-scrim { opacity:1!important; }
   .guided-tour-card { opacity:1!important; transform:translateX(-50%)!important; }
+  .guided-tamper-pulse { animation:none!important; }
+}
+@media (max-width:620px) and (prefers-reduced-motion:reduce) {
+  .guided-tour-card { transform:none!important; }
 }
 
 /* Phase 10.11: console control-room identity */
