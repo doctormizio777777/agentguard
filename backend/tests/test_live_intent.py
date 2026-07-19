@@ -119,6 +119,34 @@ def test_identical_live_scenario_is_cached_for_sixty_seconds(client, monkeypatch
         assert connection.execute("SELECT COUNT(*) FROM live_intent_runs").fetchone()[0] == 2
 
 
+def test_cache_uses_stable_client_ip_across_forwarding_proxies(
+    client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = 0
+
+    def counted_judge(*args: object, **kwargs: object) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return live_verdict(*args, **kwargs)
+
+    monkeypatch.setattr("app.live_intent.judge_intent", counted_judge)
+    first = client.post(
+        "/demo/live-intent",
+        json={"scenario_id": "betrayal_gift_cards"},
+        headers={"X-Forwarded-For": "198.51.100.17, 10.0.0.1"},
+    )
+    second = client.post(
+        "/demo/live-intent",
+        json={"scenario_id": "betrayal_gift_cards"},
+        headers={"X-Forwarded-For": "198.51.100.17, 10.0.0.2"},
+    )
+
+    assert first.status_code == second.status_code == 200
+    assert second.json()["cached"] is True
+    assert second.json()["action_id"] == first.json()["action_id"]
+    assert calls == 1
+
+
 def test_live_intent_rate_limit_counts_cached_requests_and_rejects_seventh(client) -> None:
     responses = [
         client.post("/demo/live-intent", json={"scenario_id": "betrayal_gift_cards"}, headers=LIVE_HEADERS)

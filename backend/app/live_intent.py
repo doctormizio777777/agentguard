@@ -168,7 +168,7 @@ def run_live_intent(scenario_id: LiveScenarioId, client_ip: str) -> dict[str, An
 
 
 def client_ip_from_forwarded(forwarded_for: str | None, direct_host: str | None) -> str:
-    candidate = (forwarded_for or "").split(",")[-1].strip() or (direct_host or "unknown")
+    candidate = (forwarded_for or "").split(",")[0].strip() or (direct_host or "unknown")
     try:
         return ip_address(candidate).compressed
     except ValueError:
