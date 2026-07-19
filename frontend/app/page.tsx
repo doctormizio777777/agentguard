@@ -126,7 +126,7 @@ export default function LandingPage() {
       </section>
 
       <section className="landing-built-with" data-section="built-with">
-        <div className="landing-built-copy"><span>BUILT WITH</span><p>Codex + GPT-5.6 <small>· FastAPI · SQLite · Next.js · MCP</small></p><strong>OpenAI Build Week 2026 entry</strong></div>
+        <div className="landing-built-copy"><span>BUILT WITH</span><p>Codex + GPT-5.6 <small>· FastAPI · SQLite · Next.js · MCP</small></p><Link className="landing-mcp-link" href="/console">Works with any MCP client → see the console</Link><strong>OpenAI Build Week 2026 entry</strong></div>
         <footer className="landing-footer"><span>AGENTGUARD · MIT</span><nav aria-label="Footer navigation"><a href="https://github.com/doctormizio777777/agentguard">REPO</a><Link href="/console">CONSOLE</Link><a href="https://github.com/doctormizio777777/agentguard/blob/main/LICENSE">LICENSE</a></nav></footer>
       </section>
     </main>

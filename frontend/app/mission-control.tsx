@@ -7,6 +7,7 @@ import { API_BASE_URL, DEMO_LINKS } from "./api-config";
 import { AgentGuardMark } from "./agentguard-mark";
 import { actionStatusTitle, buildHourlySeries, displayIntentModel, sparklinePoints } from "./dashboard-utils";
 import { GUIDED_TOUR_STEPS, requestScenarioStep, type GuidedTourTone, type ScenarioStepResult } from "./guided-demo";
+import { McpVisibilityPanel } from "./mcp-visibility-panel";
 import {
   DEFAULT_LIVE_SCENARIO_ID,
   LIVE_INTENT_PROGRESS,
@@ -489,6 +490,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
         </div>
         <div className="header-chips system-status-bar">
           <a className="console-about-link" href="/">← About</a>
+          <McpVisibilityPanel />
           {summary?.demo && <span className="demo-mode-chip">PUBLIC DEMO · RESETS PERIODICALLY</span>}
           <span className="status-chip" key={`agents-${summary?.agents_online ?? "loading"}`}><i className="dot dot-ok" />{summary?.agents_online ?? "—"} AGENTS ONLINE</span>
           <span className="status-chip" key={`threats-${summary?.threats_blocked ?? "loading"}`}><i className="dot dot-danger" />{summary?.threats_blocked ?? "—"} THREATS BLOCKED</span>
