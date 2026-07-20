@@ -9,9 +9,12 @@ const TEST_DIR = dirname(fileURLToPath(import.meta.url));
 const APP_DIR = join(TEST_DIR, "..", "app");
 
 
-test("the Audit Chain widget runs and restores the public tamper test", () => {
+test("the Audit Chain widget verifies, tampers, and restores the real ledger", () => {
   const missionControl = readFileSync(join(APP_DIR, "mission-control.tsx"), "utf8");
 
+  assert.match(missionControl, /const verifyLedger = async \(\) => \{[\s\S]*?fetch\(`\$\{API_BASE_URL\}\/ledger\/verify`[\s\S]*?setTamperVerification\(result\)/);
+  assert.match(missionControl, /onClick=\{\(\) => void verifyLedger\(\)\}>VERIFY NOW/);
+  assert.match(missionControl, /CHAIN VERIFIED · \$\{tamperVerification\.entries_checked\} entries/);
   assert.match(missionControl, /fetch\(`\$\{API_BASE_URL\}\/demo\/tamper`/);
   assert.match(missionControl, /fetch\(`\$\{API_BASE_URL\}\/demo\/tamper\/restore`/);
   assert.match(missionControl, /TAMPER TEST/);

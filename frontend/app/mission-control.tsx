@@ -153,7 +153,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const [tourClosing, setTourClosing] = useState(false);
   const [tourHighlight, setTourHighlight] = useState<GuidedTourHighlight | null>(null);
   const [tamperVerification, setTamperVerification] = useState<LedgerVerification | null>(null);
-  const [tamperBusy, setTamperBusy] = useState<"tamper" | "restore" | null>(null);
+  const [tamperBusy, setTamperBusy] = useState<"verify" | "tamper" | "restore" | null>(null);
   const [tamperError, setTamperError] = useState<string | null>(null);
   const [liveScenarioId, setLiveScenarioId] = useState<LiveScenarioId>(DEFAULT_LIVE_SCENARIO_ID);
   const [liveProgressIndex, setLiveProgressIndex] = useState<number | null>(null);
@@ -197,7 +197,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
       setSummary(nextSummary);
       setActions(nextActions);
       setAgents(nextAgents);
-      setTamperVerification(nextVerification.valid ? null : nextVerification);
+      setTamperVerification((current) => nextVerification.valid ? (current?.valid ? current : null) : nextVerification);
       setExpanded((current) => {
         const next = new Set(current);
         nextActions.forEach((action) => {
@@ -414,6 +414,21 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
     return () => document.removeEventListener("keydown", handleEscape);
   }, [advanceGuidedTour, exitGuidedTour, guidedTourOpen, initialTourWarming, tourComplete]);
 
+  const verifyLedger = async () => {
+    setTamperBusy("verify");
+    setTamperError(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/ledger/verify`);
+      const result = await response.json() as LedgerVerification;
+      if (!response.ok) throw new Error(`Ledger verification failed with HTTP ${response.status}`);
+      setTamperVerification(result);
+    } catch (reason) {
+      setTamperError(reason instanceof Error ? reason.message : "Ledger verification failed");
+    } finally {
+      setTamperBusy(null);
+    }
+  };
+
   const runTamperTest = async () => {
     setTamperBusy("tamper");
     setTamperError(null);
@@ -478,7 +493,9 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
   const chainBroken = summary?.ledger.valid === false || tamperVerification?.valid === false;
   const chainMessage = chainBroken
     ? `CHAIN BROKEN — first_broken_seq: ${tamperVerification?.first_broken_seq ?? "unknown"} — this is what tampering looks like`
-    : summary ? "CHAIN VERIFIED" : "CHECKING CHAIN";
+    : tamperVerification?.valid
+      ? `CHAIN VERIFIED · ${tamperVerification.entries_checked} entries`
+      : summary ? "CHAIN VERIFIED" : "CHECKING CHAIN";
   const tourStep = GUIDED_TOUR_STEPS[tourStepIndex];
 
   return (
@@ -618,7 +635,7 @@ export default function MissionControl({ initialDemoOpen = false }: MissionContr
               <div><strong>{chainMessage}</strong><p>SHA-256 hash-linked event history</p></div>
             </div>
             <div className="audit-actions">
-              <button className="verify-button" onClick={() => void refresh()}>VERIFY NOW <span>↗</span></button>
+              <button className="verify-button" disabled={tamperBusy !== null} onClick={() => void verifyLedger()}>VERIFY NOW <span>↗</span></button>
               {summary?.demo && !chainBroken && <button className="tamper-button" disabled={tamperBusy !== null} onClick={() => void runTamperTest()}>TAMPER TEST</button>}
               {summary?.demo && chainBroken && <button className="restore-button" disabled={tamperBusy !== null} onClick={() => void restoreTamperTest()}>RESTORE</button>}
             </div>
