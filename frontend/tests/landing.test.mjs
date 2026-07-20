@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -67,24 +68,52 @@ test("landing judge fixes keep the evidence factual and attributed", () => {
 });
 
 
-test("live proof is fetched from the running backend with a cold-start fallback", () => {
+test("live proof is fetched from the running backend with a cold-start fallback", async () => {
   const liveProofPath = join(APP_DIR, "live-proof-strip.tsx");
+  const retryPath = join(APP_DIR, "live-proof-retry.ts");
   assert.equal(existsSync(liveProofPath), true);
+  assert.equal(existsSync(retryPath), true, "cold-start retry helper must exist");
   const liveProof = readFileSync(liveProofPath, "utf8");
+  const { loadSummaryWithRetry } = await import(pathToFileURL(retryPath).href);
+
+  let elapsedMs = 0;
+  let attempts = 0;
+  const expected = {
+    actions_today: 12,
+    threats_blocked: 3,
+    pending_count: 2,
+    ledger: { valid: true },
+  };
+  const summary = await loadSummaryWithRetry({
+    request: async () => {
+      attempts += 1;
+      if (elapsedMs < 30_000) throw new Error("backend is cold");
+      return expected;
+    },
+    retryDelaysMs: [10_000, 10_000, 10_000],
+    wait: async (delayMs) => { elapsedMs += delayMs; },
+  });
 
   assert.match(liveProof, /API_BASE_URL/);
   assert.match(liveProof, /\/dashboard\/summary/);
+  assert.match(liveProof, /loadSummaryWithRetry/);
+  assert.match(liveProof, /active=\{summary !== null\}/);
   assert.match(liveProof, /actions_today/);
   assert.match(liveProof, /threats_blocked/);
   assert.match(liveProof, /pending_count/);
   assert.match(liveProof, /ledger\.valid/);
   assert.match(liveProof, /pulled live from the running system/);
   assert.match(liveProof, /WAKING|UNAVAILABLE|CONNECTING/);
+  assert.match(liveProof, /BACKEND WAKING — RETRYING AUTOMATICALLY/);
+  assert.deepEqual(summary, expected);
+  assert.equal(attempts, 4);
+  assert.equal(elapsedMs, 30_000);
 });
 
 
 test("landing copy states the problem, two judges, honest comparison, and proof links", () => {
   const page = readFileSync(join(APP_DIR, "page.tsx"), "utf8");
+  const css = readFileSync(join(APP_DIR, "globals.css"), "utf8");
 
   assert.match(page, /Your agent follows instructions\. All of them\./);
   assert.match(page, /Gartner predicts that by 2028, 1 in 4 enterprise breaches will be traced back to AI agent abuse/);
@@ -97,6 +126,11 @@ test("landing copy states the problem, two judges, honest comparison, and proof 
   assert.match(page, /docs\/reviews\/2026-07-18-final-security-audit\.md/);
   assert.match(page, /docker compose up/);
   assert.match(page, /OpenAI Build Week 2026 entry/);
+  assert.match(page, /className="landing-table-scroll-cue"[^>]*>SCROLL →<\/span>/);
+  assert.match(page, /<th className="is-agentguard" scope="col">AgentGuard<\/th>/);
+  assert.match(css, /@media \(max-width:700px\)[\s\S]*\.landing-comparison-table tr\s*\{[^}]*display:grid;[^}]*grid-template-columns:195px repeat\(4,165px\);/s);
+  assert.match(css, /@media \(max-width:700px\)[\s\S]*\.landing-comparison-table \.is-agentguard\s*\{[^}]*order:2;/s);
+  assert.match(css, /@media \(max-width:700px\)[\s\S]*\.landing-table-scroll-cue\s*\{[^}]*display:inline-flex;/s);
 });
 
 

@@ -61,6 +61,9 @@ test("the layer route, verdict lights, and reduced-motion fallback use existing 
   assert.match(css, /@keyframes layer-action-allowed\s*\{[\s\S]*52%,100%\s*\{\s*opacity:0/s);
   assert.match(css, /@keyframes layer-action-blocked\s*\{[\s\S]*0%,62%\s*\{\s*opacity:0/s);
   assert.match(css, /\.layer-stage-intent\s*\{[^}]*animation:\s*layer-intent-stage/s);
+  assert.match(css, /\.layer-destination\.is-target\s*\{[^}]*animation:\s*layer-target-verdict var\(--layer-cycle\)/s);
+  assert.match(css, /@keyframes layer-target-verdict\s*\{[\s\S]*0%,52%\s*\{[^}]*color:var\(--ok\)/s);
+  assert.match(css, /@keyframes layer-target-verdict\s*\{[\s\S]*62%,100%\s*\{[^}]*color:var\(--border-strong\)/s);
   assert.match(css, /@media \(prefers-reduced-motion:reduce\)[\s\S]*\.layer-action-dot[^}]*animation:\s*none!important/s);
 });
 

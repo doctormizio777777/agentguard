@@ -143,7 +143,7 @@ Codex built the project gate-by-gate with TDD and real acceptance artifacts. The
 - Phase 5 intent firewall: `2482036`, demo hardening `2565542`, safety review `98b0a83`.
 - Phase 6 Mission Control: `9eabe76` backend and `ef286c5` frontend.
 
-Codex accelerated the scaffolding, the real test suites (59 tests before the Phase 7 packaging checks), the transactional ledger design using `BEGIN IMMEDIATE`, and the MCP wiring over the shared service layer.
+Codex accelerated the scaffolding, the real test suites (220 tests — 138 backend + 82 frontend), the transactional ledger design using `BEGIN IMMEDIATE`, and the MCP wiring over the shared service layer.
 
 Human decisions were explicit: money is stored as integer minor units rather than floats; fusion is fail-closed; every phase is gated by real HTTP, test, build, and ledger artifacts; and the demo makes the poisoned action visible without requiring a live key.
 
@@ -157,7 +157,7 @@ At runtime, GPT-5.6 is the intent-firewall security analyst. It receives the dec
 }
 ```
 
-The demo agent also runs on GPT-5.6 in the optional live path. The no-key Compose path uses the same response shape with explicitly labelled `seed-canned-verdict` values.
+The demo agent also runs on GPT-5.6 in the optional live path. The no-key Compose path uses the same response shape, displayed as `gpt-5.6 (recorded run · reproducible in console)`.
 
 ## 6. Security posture
 

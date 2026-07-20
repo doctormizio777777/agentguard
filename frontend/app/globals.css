@@ -151,6 +151,7 @@ button { font: inherit; }
 .landing-trace-verdict small { color:var(--landing-trace-tone); font-size:10px; font-weight:700; line-height:1.5; }
 .landing-trace-verdict blockquote { margin:12px 0 0; padding-left:15px; border-left:1px solid var(--landing-trace-tone); color:var(--text); font-family:var(--font-inter); font-size:13px; font-style:italic; line-height:1.65; }
 .landing-recorded-link { justify-self:start; border-bottom:1px solid transparent; color:var(--text-dim); font-size:9px; text-decoration:none; }
+.landing-table-scroll-cue { display:none; }
 .landing-table-wrap { overflow-x:auto; border:1px solid var(--border-strong); }
 .landing-comparison-table { width:100%; min-width:850px; border-collapse:collapse; background:var(--surface); }
 .landing-comparison-table th,.landing-comparison-table td { padding:16px 18px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); text-align:center; }
@@ -166,6 +167,16 @@ button { font: inherit; }
 .comparison-no { color:var(--text-dim); }
 .landing-comparison-note { margin:18px 0 0; color:var(--text-dim); font-size:12px; line-height:1.6; }
 .landing-comparison-note+.landing-comparison-note { margin-top:6px; }
+@media (max-width:700px) {
+  .landing-table-scroll-cue { display:inline-flex; align-items:center; min-height:28px; margin:0 0 7px; color:var(--text-dim); font-family:var(--font-data); font-size:8px; font-weight:700; letter-spacing:.12em; }
+  .landing-table-wrap { mask-image:none; }
+  .landing-comparison-table tr { display:grid; grid-template-columns:195px repeat(4,165px); }
+  .landing-comparison-table tr>th:first-child { order:1; width:auto; }
+  .landing-comparison-table .is-agentguard { position:relative; z-index:1; order:2; border-right:1px solid var(--border); box-shadow:14px 0 18px -14px var(--text-dim); }
+  .landing-comparison-table tr>:nth-child(2) { order:3; }
+  .landing-comparison-table tr>:nth-child(3) { order:4; }
+  .landing-comparison-table tr>:nth-child(4) { order:5; }
+}
 .landing-proof-links { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .landing-proof-links a { display:grid; min-height:180px; padding:22px; border:1px solid var(--border); background:var(--surface); color:var(--text); text-decoration:none; transition:border-color var(--dur-micro) var(--ease),transform var(--dur-micro) var(--ease); }
 .landing-proof-links a:hover { border-color:var(--accent); transform:translateY(-1px); }
@@ -651,7 +662,8 @@ button { font: inherit; }
 .layer-stage-intent { animation:layer-intent-stage var(--layer-cycle) linear infinite; }
 .layer-stage-approval { animation:layer-approval-stage var(--layer-cycle) linear infinite; }
 .layer-stage-ledger { animation:layer-ledger-stage var(--layer-cycle) linear infinite; }
-.layer-destination.is-target rect { stroke:var(--ok); }
+.layer-destination.is-target { color:var(--ok); animation:layer-target-verdict var(--layer-cycle) linear infinite; }
+.layer-destination.is-target rect { stroke:currentColor; }
 .layer-connector { fill:none; stroke:var(--accent); stroke-dasharray:4 6; stroke-width:1.5; }
 .layer-connector-exit { stroke:var(--ok); }
 .layer-connector-dim { stroke:var(--border-strong); }
@@ -798,6 +810,7 @@ button { font: inherit; }
 @keyframes layer-ledger-stage { 0%,38%,45%,100% { color:var(--border-strong); filter:none; } 40%,44% { color:var(--accent); filter:drop-shadow(0 0 6px var(--accent)); } }
 @keyframes layer-verdict-allowed { 0%,45%,53%,100% { opacity:0; } 48%,51% { opacity:1; } }
 @keyframes layer-verdict-blocked { 0%,76%,85%,100% { opacity:0; } 79%,83% { opacity:1; } }
+@keyframes layer-target-verdict { 0%,52% { color:var(--ok); } 62%,100% { color:var(--border-strong); } }
 
 @media (max-width:860px) {
   .layer-diagram { min-height:0; }
@@ -830,6 +843,7 @@ button { font: inherit; }
   .layer-action-dot-allowed { opacity:1; offset-distance:100%; }
   .layer-action-dot-blocked { display:none; }
   .layer-stage { animation:none!important; color:var(--accent); filter:none; }
+  .layer-destination.is-target { animation:none!important; color:var(--ok); }
   .layer-verdict-label { animation:none!important; }
   .layer-verdict-allowed { opacity:1; }
   .landing-intent-badge,.landing-terminal-cursor,.live-intent-trigger { animation:none!important; }

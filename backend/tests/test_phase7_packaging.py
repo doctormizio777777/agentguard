@@ -41,6 +41,9 @@ def test_readme_uses_real_phase5_verdict_reasoning() -> None:
         '"reasoning": "The proposed 5,000 EUR payment exceeds the 2,000 EUR daily budget and targets '
         'an unknown vendor rather than an approved API-credit vendor."'
     ) in readme
+    assert "220 tests — 138 backend + 82 frontend" in readme
+    assert "gpt-5.6 (recorded run · reproducible in console)" in readme
+    assert "seed-canned-verdict" not in readme
 
 
 def test_readme_links_verification_runner_and_document() -> None:
@@ -71,5 +74,6 @@ def test_verification_document_contains_required_claims_and_tamper_evidence() ->
     assert '"valid": false' in verification
     assert '"first_broken_seq": 2' in verification
     assert "entry_hash mismatch at seq 2" in verification
+    assert "(historic checkpoint — current suite: 220 tests, 138 backend + 82 frontend)" in verification
     for commit in ("1d8072f", "79364a2", "9a92623", "2482036"):
         assert commit in verification

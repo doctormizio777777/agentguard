@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { API_BASE_URL } from "./api-config";
+import { loadSummaryWithRetry } from "./live-proof-retry";
 import { useCountUp } from "./motion-values";
 
 
@@ -17,19 +18,24 @@ type Summary = {
 export function LiveProofStrip() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [status, setStatus] = useState<"CONNECTING" | "LIVE" | "WAKING">("CONNECTING");
-  const [enteredViewport, setEnteredViewport] = useState(false);
-  const shellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/dashboard/summary`, {
+        const nextSummary = await loadSummaryWithRetry<Summary>({
           signal: controller.signal,
-          cache: "no-store",
+          onRetry: () => setStatus("WAKING"),
+          request: async () => {
+            const response = await fetch(`${API_BASE_URL}/dashboard/summary`, {
+              signal: controller.signal,
+              cache: "no-store",
+            });
+            if (!response.ok) throw new Error(`Summary returned HTTP ${response.status}`);
+            return await response.json() as Summary;
+          },
         });
-        if (!response.ok) throw new Error(`Summary returned HTTP ${response.status}`);
-        setSummary(await response.json() as Summary);
+        setSummary(nextSummary);
         setStatus("LIVE");
       } catch (error) {
         if (!controller.signal.aborted) setStatus("WAKING");
@@ -40,23 +46,6 @@ export function LiveProofStrip() {
     return () => controller.abort();
   }, []);
 
-  useEffect(() => {
-    const shell = shellRef.current;
-    if (!shell) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || !("IntersectionObserver" in window)) {
-      setEnteredViewport(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      setEnteredViewport(true);
-      observer.unobserve(shell);
-    }, { threshold: 0.15 });
-    observer.observe(shell);
-    return () => observer.disconnect();
-  }, []);
-
   const values = [
     { label: "ACTIONS TODAY", target: summary?.actions_today ?? null },
     { label: "THREATS BLOCKED", target: summary?.threats_blocked ?? null },
@@ -64,12 +53,12 @@ export function LiveProofStrip() {
   ];
 
   return (
-    <div className="landing-proof-shell" ref={shellRef}>
+    <div className="landing-proof-shell">
       <div className="landing-proof-grid">
         {values.map((item) => (
           <div className="landing-proof-stat" key={item.label}>
             <span>{item.label}</span>
-            <ProofNumber active={enteredViewport && summary !== null} target={item.target} />
+            <ProofNumber active={summary !== null} target={item.target} />
           </div>
         ))}
         <div className="landing-proof-stat">
@@ -78,7 +67,7 @@ export function LiveProofStrip() {
         </div>
       </div>
       <p className={`landing-proof-caption is-${status.toLowerCase()}`}>
-        <i />pulled live from the running system · {status === "WAKING" ? "BACKEND WAKING — OPEN THE CONSOLE TO RETRY" : status}
+        <i />pulled live from the running system · {status === "WAKING" ? "BACKEND WAKING — RETRYING AUTOMATICALLY" : status}
       </p>
     </div>
   );

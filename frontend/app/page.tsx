@@ -100,9 +100,10 @@ export default function LandingPage() {
         <div className="landing-section-index"><span>05</span><small>POSITIONING</small></div>
         <div className="landing-section-body">
           <header className="landing-section-heading"><span>HONEST COMPARISON</span><h2>Controls compose. Intent is the missing layer.</h2></header>
+          <span className="landing-table-scroll-cue" aria-hidden="true">SCROLL →</span>
           <div className="landing-table-wrap">
             <table className="landing-comparison-table">
-              <thead><tr><th scope="col">CAPABILITY</th><th scope="col">Spend management tools</th><th scope="col">Agent wallets</th><th scope="col">Deterministic kernels</th><th scope="col">AgentGuard</th></tr></thead>
+              <thead><tr><th scope="col">CAPABILITY</th><th scope="col">Spend management tools</th><th scope="col">Agent wallets</th><th scope="col">Deterministic kernels</th><th className="is-agentguard" scope="col">AgentGuard</th></tr></thead>
               <tbody>{COMPARISON_ROWS.map(([label, ...values]) => <tr key={label}><th scope="row">{label}</th>{values.map((value, index) => <td className={index === 3 ? "is-agentguard" : ""} key={`${label}-${index}`}><span className={`comparison-${value.toLowerCase()}`}>{value}</span></td>)}</tr>)}</tbody>
             </table>
           </div>

@@ -45,7 +45,7 @@ test("reduced motion disables shared durations and keeps content complete", () =
   assert.match(css, /--dur-state:\s*0ms/);
   assert.match(css, /--dur-reveal:\s*0ms/);
   assert.match(readFileSync(join(APP_DIR, "landing-interactions.tsx"), "utf8"), /prefers-reduced-motion: reduce/);
-  assert.match(liveProof, /prefers-reduced-motion: reduce/);
+  assert.match(liveProof, /active=\{summary !== null\}/);
   assert.match(motionValues, /prefers-reduced-motion: reduce/);
 });
 

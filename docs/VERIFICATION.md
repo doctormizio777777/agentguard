@@ -303,6 +303,8 @@ $ pytest tests/test_mcp.py::test_mcp_request_action_matches_http_result -q
 
 The project passed the requested 64-backend/3-frontend checkpoint. The current suite is stronger: it contains 85 backend tests and 3 frontend tests because the README-verdict regression and final-verification contracts were added after that checkpoint.
 
+(historic checkpoint — current suite: 220 tests, 138 backend + 82 frontend)
+
 Relevant commits: [`1d8072f`](../../../commit/1d8072f), [`79364a2`](../../../commit/79364a2), [`9a92623`](../../../commit/9a92623), [`2482036`](../../../commit/2482036), [`ef286c5`](../../../commit/ef286c5), and [`2946938`](../../../commit/2946938).
 
 ### HOW WE PROVE IT
