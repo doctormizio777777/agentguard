@@ -70,6 +70,7 @@ test("live proof and console KPIs animate their fetched targets", () => {
   assert.match(liveProof, /summary\?\.threats_blocked \?\? null/);
   assert.match(liveProof, /summary\?\.pending_count \?\? null/);
   assert.match(motionValues, /COUNT_UP_DURATION_MS\s*=\s*600/);
+  assert.match(motionValues, /setTimeout\(\(\) => setValue\(target\), COUNT_UP_DURATION_MS \+ 100\)/);
   assert.match(consoleSource, /useCountUp\(value\)/);
   assert.match(consoleSource, /className="kpi-value"/);
   assert.match(css, /\.landing-proof-stat strong[^}]*min-width/s);

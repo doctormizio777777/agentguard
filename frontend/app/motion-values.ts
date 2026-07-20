@@ -42,7 +42,11 @@ export function useCountUp(target: number | null, active = true): { value: numbe
       if (progress < 1) frame = requestAnimationFrame(update);
     };
     frame = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(frame);
+    const fallback = setTimeout(() => setValue(target), COUNT_UP_DURATION_MS + 100);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(fallback);
+    };
   }, [active, target]);
 
   return { value, revision };
