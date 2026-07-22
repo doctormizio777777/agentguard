@@ -22,7 +22,7 @@ jobs:
           fi
 
           response_file="$(mktemp)"
-          http_code="$(curl --silent --show-error --max-time 30 \
+          http_code="$(curl --silent --show-error --max-time 120 \
             --output "$response_file" \
             --write-out "%{http_code}" \
             "${RENDER_URL%/}/health")"
